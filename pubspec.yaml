@@ -49,11 +49,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/logo.png
+    - assets/images/executor.png
     - assets/videos/flux.mp4
     - assets/images/logo.jpg
     - assets/images/p.jpg
-    - assets/images/l.jpg
     - assets/images/g.jpg
     - assets/videos/load.mp4
     - assets/videos/banner.mp4

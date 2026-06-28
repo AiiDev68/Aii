@@ -184,7 +184,7 @@ class _LandingPageState extends State<LandingPage> with SingleTickerProviderStat
                             children: [
                               Positioned.fill(
                                 child: Image.asset(
-                                  "assets/images/logo.png",
+                                  "assets/images/executor.png",
                                   fit: BoxFit.contain,
                                   errorBuilder: (context, error, stackTrace) {
                                     return Container(

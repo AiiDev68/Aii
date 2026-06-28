@@ -1,10 +1,11 @@
-// tqto.dart (Modified with DeviceDashboard style)
+// tqto.dart (Modified with DeviceDashboard style & Video Background)
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:video_player/video_player.dart'; // <-- IMPORT VIDEO PLAYER
 
 // ─── METALLIC RED THEME COLORS ──────────────────────────────────────────────
 class TqTheme {
@@ -93,10 +94,37 @@ class ThanksToPageState extends State<ThanksToPage> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // ─── VIDEO PLAYER VARIABLES ──────────────────────────────────────────
+  late VideoPlayerController _videoController;
+  bool _isVideoInitialized = false;
+
   @override
   void initState() {
     super.initState();
+    _initializeVideo(); // Inisialisasi video terlebih dahulu
     _initializePage();
+  }
+
+  // ─── VIDEO INITIALIZATION ────────────────────────────────────────────
+  void _initializeVideo() {
+    _videoController = VideoPlayerController.asset('assets/videos/banner.mp4')
+      ..initialize().then((_) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+        _videoController.setLooping(true);
+        _videoController.setVolume(0); // Set volume 0 agar tidak mengganggu
+        _videoController.play();
+      }).catchError((e) {
+        debugPrint("Error loading video: $e");
+        // Biarkan fallback warna bg jika video gagal load
+      });
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose(); // Jangan lupa dispose untuk hindari memory leak
+    super.dispose();
   }
 
   Future<void> _initializePage() async {
@@ -176,7 +204,7 @@ class ThanksToPageState extends State<ThanksToPage> {
         gradient: gradient != null
             ? LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight)
             : LinearGradient(
-                colors: [TqTheme.surface2, TqTheme.surface3],
+                colors: [TqTheme.surface2.withOpacity(0.85), TqTheme.surface3.withOpacity(0.85)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -196,7 +224,7 @@ class ThanksToPageState extends State<ThanksToPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: TqTheme.surface,
+        color: TqTheme.surface.withOpacity(0.9), // Diberikan opacity agar video sedikit terlihat
         border: Border(
           bottom: BorderSide(
             color: TqTheme.red1.withOpacity(0.2),
@@ -207,7 +235,6 @@ class ThanksToPageState extends State<ThanksToPage> {
       ),
       child: Row(
         children: [
-          // Menghapus back button
           const SizedBox(width: 0),
           const SizedBox(width: 16),
           Expanded(
@@ -291,7 +318,6 @@ class ThanksToPageState extends State<ThanksToPage> {
     final ppUrl = item['ppUrl'] ?? '';
     final contact = item['contac'] ?? '';
     
-    // Determine status color - Metallic Red theme
     Color statusColor;
     if (status.toLowerCase().contains('owner')) {
       statusColor = TqTheme.gold;
@@ -314,7 +340,6 @@ class ThanksToPageState extends State<ThanksToPage> {
         borderRadius: BorderRadius.circular(20),
         child: Row(
           children: [
-            // Avatar with gradient border
             Container(
               width: 65,
               height: 65,
@@ -377,7 +402,6 @@ class ThanksToPageState extends State<ThanksToPage> {
               ),
             ),
             const SizedBox(width: 16),
-            // User info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +440,6 @@ class ThanksToPageState extends State<ThanksToPage> {
                 ],
               ),
             ),
-            // Telegram button - Metallic Red
             GestureDetector(
               onTap: () => _launchTelegram(contact),
               child: Container(
@@ -648,24 +671,50 @@ class ThanksToPageState extends State<ThanksToPage> {
     return Scaffold(
       backgroundColor: TqTheme.bg,
       body: SafeArea(
-        child: Column(
+        // ─── MENGGUNAKAN STACK UNTUK BACKGROUND VIDEO ───────────────
+        child: Stack(
           children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _errorMessage != null
-                      ? _buildErrorState()
-                      : _tqList.isEmpty
-                          ? _buildEmptyState()
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(top: 12, bottom: 20),
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: _tqList.length,
-                              itemBuilder: (context, index) {
-                                return _buildTqCard(_tqList[index], index);
-                              },
-                            ),
+            // Layer 1: Video Background
+            Positioned.fill(
+              child: _isVideoInitialized
+                  ? FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _videoController.value.size.width,
+                        height: _videoController.value.size.height,
+                        child: VideoPlayer(_videoController),
+                      ),
+                    )
+                  : Container(color: TqTheme.bg), // Fallback sebelum video loading
+            ),
+            // Optional: Layer 2: Dark Overlay agar teks lebih terbaca
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.5), // Atur opacity sesuai kebutuhan (0.3 - 0.7)
+              ),
+            ),
+            
+            // Layer 3: Konten Utama (Header dan List)
+            Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: _isLoading
+                      ? _buildLoadingState()
+                      : _errorMessage != null
+                          ? _buildErrorState()
+                          : _tqList.isEmpty
+                              ? _buildEmptyState()
+                              : ListView.builder(
+                                  padding: const EdgeInsets.only(top: 12, bottom: 20),
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: _tqList.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildTqCard(_tqList[index], index);
+                                  },
+                                ),
+                ),
+              ],
             ),
           ],
         ),
