@@ -1,17 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as dart_math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/status.dart' as status;
+import 'package:web_socket_channel/status.dart' as ws_status;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'owner_page.dart';
 import 'login_page.dart';
@@ -19,831 +17,631 @@ import 'device_dashboard.dart';
 import 'tqto.dart';
 import 'chat.dart';
 
-// ─── METALLIC RED THEME COLORS ──────────────────────────────────────
-class AppColors {
-  static const bg            = Color(0xFF0A0A0A);
-  static const surface       = Color(0xFF1A0A0A);
-  static const surfaceLight  = Color(0xFF2D1111);
-  static const surface2      = Color(0xFF3D1818);
-  static const cardDark      = Color(0xFF0D0505);
-  
-  // Metallic Red Gradient
-  static const red1          = Color(0xFFFF1744);
-  static const red2          = Color(0xFFD50000);
-  static const red3          = Color(0xFFB71C1C);
-  static const red4          = Color(0xFF880E4F);
-  
-  // Metallic Accents
-  static const gold          = Color(0xFFC0C0C0);
-  static const silver        = Color(0xFFC0C0C0);
-  static const chrome        = Color(0xFFE8E8E8);
-  
-  static const accent1       = Color(0xFFFF1744);
-  static const accent2       = Color(0xFFD50000);
-  static const accent3       = Color(0xFFB71C1C);
-  static const success       = Color(0xFF4CAF50);
-  static const warning       = Color(0xFFFFAB40);
-  static const error         = Color(0xFFFF1744);
-  
-  static const textPrimary   = Color(0xFFFFF5F5);
-  static const textSec       = Color(0xFFFFCDD2);
-  static const textMuted     = Color(0xFF8B3A3A);
-  
-  static const shadow        = Color(0x40000000);
-  static const shadowHeavy   = Color(0x80000000);
+// ─── NETHERITE BLOOD RED THEME ──────────────────────────────────────
+// Mirrors the CSS variables in the reference HTML exactly.
+class NetherColors {
+  static const Color bgMain       = Color(0xFF050507);
+  static const Color bgCard       = Color(0xFF0C0C10);
+  static const Color bgCardInner  = Color(0xFF14141A);
+  static const Color border       = Color(0x0FFFFFFF); // rgba(255,255,255,0.06)
+  static const Color borderActive = Color(0x80D90429); // rgba(217,4,41,0.5)
+
+  static const Color textMain  = Color(0xFFFFFFFF);
+  static const Color textSec   = Color(0xFFA1A1AA);
+  static const Color textMuted = Color(0xFF52525B);
+
+  // Deep Blood Red Palette
+  static const Color redPrimary = Color(0xFFD90429);
+  static const Color redDeep    = Color(0xFF8B0000);
+  static const Color redGlow    = Color(0x33D90429); // 0.2
+  static const Color redSoftBg  = Color(0x14D90429); // 0.08
+
+  // Glass red helpers
+  static const Color glassRedStart  = Color(0x33D90429); // rgba(217,4,41,0.2)
+  static const Color glassRedEnd    = Color(0x99140005); // rgba(20,0,5,0.6)
+  static const Color glassRedBorder = Color(0x80D90429); // rgba(217,4,41,0.5)
+
+  static const Color success = Color(0xFF34D399);
+  static const Color warning = Color(0xFFFFAB40);
+  static const Color error   = Color(0xFFD90429);
 }
 
-// ─── SHADOW UTILITIES ─────────────────────────────────────────────
-class ShadowUtils {
-  static List<BoxShadow> get soft {
-    return const [
-      BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: Offset(0, 2)),
-      BoxShadow(color: AppColors.shadowHeavy, blurRadius: 2, offset: Offset(0, 1)),
-    ];
-  }
-  
-  static List<BoxShadow> get medium {
-    return const [
-      BoxShadow(color: AppColors.shadow, blurRadius: 16, offset: Offset(0, 4)),
-      BoxShadow(color: AppColors.shadowHeavy, blurRadius: 4, offset: Offset(0, 2)),
-    ];
-  }
-  
-  static List<BoxShadow> get heavy {
-    return const [
-      BoxShadow(color: AppColors.shadow, blurRadius: 24, offset: Offset(0, 8)),
-      BoxShadow(color: AppColors.shadowHeavy, blurRadius: 8, offset: Offset(0, 4)),
-      BoxShadow(color: AppColors.shadowHeavy, blurRadius: 2, offset: Offset(0, 1)),
-    ];
-  }
-  
-  static List<BoxShadow> get card {
-    return const [
-      BoxShadow(color: AppColors.shadowHeavy, blurRadius: 20, offset: Offset(0, 10)),
-      BoxShadow(color: AppColors.shadow, blurRadius: 6, offset: Offset(0, 2)),
-    ];
-  }
-}
+const String _kBase = 'http://szxennofficial.qoupayid.xyz:3591';
 
-// ─── ENHANCED GLASS CARD ──────────────────────────────────────────
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final double radius;
-  final Color? borderColor;
-  final Color? bgColor;
-  final List<Color>? gradient;
-  final bool hasShadow;
-  final VoidCallback? onTap;
-
-  const _GlassCard({
-    required this.child,
-    this.padding,
-    this.radius = 24,
-    this.borderColor,
-    this.bgColor,
-    this.gradient,
-    this.hasShadow = true,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Widget container = Container(
-      padding: padding ?? const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: gradient != null
-            ? LinearGradient(colors: gradient!, begin: Alignment.topLeft, end: Alignment.bottomRight)
-            : LinearGradient(
-                colors: [AppColors.surface2, AppColors.surface],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-        border: Border.all(
-          color: borderColor ?? AppColors.red1.withOpacity(0.15),
-          width: 0.5,
-        ),
-        boxShadow: hasShadow ? ShadowUtils.card : null,
-      ),
-      child: child,
-    );
-    
-    if (onTap != null) {
-      return _AnimatedCard(
-        onTap: onTap!,
-        child: container,
+Route _createRoute(Widget page) {
+  return PageRouteBuilder(
+    transitionDuration: const Duration(milliseconds: 400),
+    pageBuilder: (context, animation, secondaryAnimation) => page,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      const curve = Curves.easeOutCubic;
+      final tween = Tween(begin: const Offset(0.03, 0.0), end: Offset.zero)
+          .chain(CurveTween(curve: curve));
+      final offsetAnim = animation.drive(tween);
+      final fadeTween = Tween(begin: 0.0, end: 1.0)
+          .chain(CurveTween(curve: curve));
+      final fadeAnim = animation.drive(fadeTween);
+      return FadeTransition(
+        opacity: fadeAnim,
+        child: SlideTransition(position: offsetAnim, child: child),
       );
-    }
-    
-    return container;
-  }
-}
-
-class _AnimatedCard extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _AnimatedCard({required this.child, required this.onTap});
-
-  @override
-  State<_AnimatedCard> createState() => _AnimatedCardState();
-}
-
-class _AnimatedCardState extends State<_AnimatedCard> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: () {
-        HapticFeedback.lightImpact();
-        widget.onTap();
-      },
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 100),
-        scale: _isPressed ? 0.98 : 1.0,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-// ─── ENHANCED HEXAGON BACKGROUND ───────────────────────────────────
-class _HexBackground extends StatelessWidget {
-  final Widget child;
-  const _HexBackground({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _HexPainter(),
-      child: child,
-    );
-  }
-}
-
-class _HexPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [AppColors.red1.withOpacity(0.12), AppColors.red3.withOpacity(0.05), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: size.width * 0.6));
-    canvas.drawCircle(Offset.zero, size.width * 0.6, glowPaint);
-    
-    final glowPaint2 = Paint()
-      ..shader = RadialGradient(
-        colors: [AppColors.red4.withOpacity(0.1), Colors.transparent],
-      ).createShader(Rect.fromCircle(center: Offset(size.width, size.height), radius: size.width * 0.5));
-    canvas.drawCircle(Offset(size.width, size.height), size.width * 0.5, glowPaint2);
-    
-    final hexWidth = 60.0;
-    final hexHeight = hexWidth * dart_math.sqrt(3) / 2;
-    final cols = (size.width / hexWidth).ceil() + 2;
-    final rows = (size.height / hexHeight).ceil() + 2;
-    
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5
-      ..color = AppColors.red1.withOpacity(0.03);
-    
-    for (int row = -1; row < rows; row++) {
-      for (int col = -1; col < cols; col++) {
-        final x = col * hexWidth + (row % 2) * hexWidth / 2;
-        final y = row * hexHeight * 0.75;
-        
-        final path = Path();
-        for (int i = 0; i < 6; i++) {
-          final angle = i * dart_math.pi * 2 / 6;
-          final px = x + hexWidth / 2 + dart_math.cos(angle) * hexWidth / 2;
-          final py = y + hexHeight / 2 + dart_math.sin(angle) * hexHeight / 2;
-          if (i == 0) path.moveTo(px, py);
-          else path.lineTo(px, py);
-        }
-        path.close();
-        canvas.drawPath(path, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─── PULSE DOT ────────────────────────────────────────────────────
-class _PulseDot extends StatefulWidget {
-  final Color color;
-  const _PulseDot({required this.color});
-  @override State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
-  late AnimationController _c;
-  late Animation<double> _a;
-  @override void initState() {
-    super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
-    _a = Tween<double>(begin: 0.3, end: 1.0).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
-  }
-  @override void dispose() { _c.dispose(); super.dispose(); }
-  @override Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _a,
-    builder: (_, __) => Container(
-      width: 8, height: 8,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: widget.color.withOpacity(_a.value),
-        boxShadow: [BoxShadow(color: widget.color.withOpacity(0.5), blurRadius: 6)],
-      ),
-    ),
+    },
   );
 }
 
-// ─── TYPEWRITER TEXT ───────────────────────────────────────────────
-class _TypewriterText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-  const _TypewriterText({required this.text, required this.style});
-  @override State<_TypewriterText> createState() => _TypewriterTextState();
-}
-
-class _TypewriterTextState extends State<_TypewriterText> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<int> _charAnim;
-  late Timer _restartTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: Duration(milliseconds: widget.text.length * 70));
-    _charAnim = IntTween(begin: 0, end: widget.text.length).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _ctrl.forward();
-    _restartTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (mounted) { _ctrl.reset(); _ctrl.forward(); }
-    });
-  }
-  @override void dispose() { _ctrl.dispose(); _restartTimer.cancel(); super.dispose(); }
-  
-  @override Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _charAnim,
-      builder: (_, __) {
-        final displayed = widget.text.substring(0, _charAnim.value);
-        return Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(displayed, style: widget.style),
-          if (_charAnim.value < widget.text.length)
-            Text('|', style: widget.style.copyWith(color: AppColors.red1)),
-        ]);
-      },
+// ─── GLASS RED HELPERS ──────────────────────────────────────────────
+LinearGradient _glassRedGradient() => const LinearGradient(
+      colors: [NetherColors.glassRedStart, NetherColors.glassRedEnd],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
     );
-  }
-}
 
-// ─── BANNER CAROUSEL ──────────────────────────────────────────────
-class _BannerCarousel extends StatefulWidget {
-  final List<Map<String, dynamic>> banners;
-  const _BannerCarousel({required this.banners});
+List<BoxShadow> _glassRedShadow() => const [
+      BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
+      BoxShadow(color: Color(0x0DFFFFFF), blurRadius: 0, offset: Offset(0, 1)),
+    ];
 
+// ─── STAGGERED FADE-IN ──────────────────────────────────────────────
+class _Stagger extends StatefulWidget {
+  final Widget child;
+  final Duration delay;
+  const _Stagger({required this.child, required this.delay});
   @override
-  State<_BannerCarousel> createState() => _BannerCarouselState();
+  State<_Stagger> createState() => _StaggerState();
 }
 
-class _BannerCarouselState extends State<_BannerCarousel> {
-  late PageController _pageCtrl;
-  int _current = 0;
-  Timer? _autoTimer;
+class _StaggerState extends State<_Stagger> with SingleTickerProviderStateMixin {
+  late AnimationController _c;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
 
   @override
   void initState() {
     super.initState();
-    _pageCtrl = PageController();
-    if (widget.banners.isNotEmpty) {
-      _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        if (!mounted) return;
-        final next = (_current + 1) % widget.banners.length;
-        _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-      });
-    }
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _fade = CurvedAnimation(parent: _c, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _c, curve: const Cubic(0.16, 1, 0.3, 1)));
+    Future.delayed(widget.delay, () {
+      if (mounted) _c.forward();
+    });
   }
 
   @override
   void dispose() {
-    _pageCtrl.dispose();
-    _autoTimer?.cancel();
+    _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.banners.isEmpty) return const SizedBox();
-    return Column(
-      children: [
-        SizedBox(
-          height: 180,
-          child: PageView.builder(
-            controller: _pageCtrl,
-            itemCount: widget.banners.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, i) {
-              final banner = widget.banners[i];
-              final imagePath = banner['image'] ?? '';
-              final text = banner['text'] ?? '';
-              final subtext = banner['subtext'] ?? '';
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.gold.withOpacity(0.3),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.red1.withOpacity(0.15),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surface2,
-                          child: const Icon(Icons.image_rounded, color: Colors.grey),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 16,
-                        bottom: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              text,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                                shadows: [
-                                  Shadow(color: Colors.black45, blurRadius: 4),
-                                ],
-                              ),
-                            ),
-                            if (subtext.isNotEmpty)
-                              Text(
-                                subtext,
-                                style: const TextStyle(
-                                  color: AppColors.gold,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                  shadows: [
-                                    Shadow(color: Colors.black45, blurRadius: 4),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(widget.banners.length, (di) => AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: di == _current ? 24 : 6,
-            height: 4,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
-              color: di == _current ? AppColors.gold : AppColors.textMuted.withOpacity(0.3),
-              boxShadow: di == _current ? [BoxShadow(color: AppColors.gold.withOpacity(0.5), blurRadius: 4)] : null,
-            ),
-          )),
-        ),
-      ],
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
 
-// ─── VIDEO BANNER WIDGET ──────────────────────────────────────────
-class _VideoBanner extends StatefulWidget {
-  final String videoPath;
-  const _VideoBanner({required this.videoPath});
+// ─── TOPBAR ─────────────────────────────────────────────────────────
+class _Topbar extends StatelessWidget {
+  final VoidCallback onMenuTap;
+  final VoidCallback onBellTap;
+  final VoidCallback onProfileTap;
+  const _Topbar({
+    required this.onMenuTap,
+    required this.onBellTap,
+    required this.onProfileTap,
+  });
 
   @override
-  State<_VideoBanner> createState() => _VideoBannerState();
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        color: NetherColors.bgMain,
+        border: Border(bottom: BorderSide(color: NetherColors.border, width: 1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _IconBtn(icon: Icons.menu, onTap: onMenuTap),
+          const Text(
+            'NETHERITE',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          Row(
+            children: [
+              _IconBtn(icon: Icons.notifications_none_rounded, onTap: onBellTap),
+              const SizedBox(width: 10),
+              _IconBtn(icon: Icons.person_outline_rounded, isProfile: true, onTap: onProfileTap),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _VideoBannerState extends State<_VideoBanner> {
-  late VideoPlayerController _controller;
-  bool _isInitialized = false;
+class _IconBtn extends StatefulWidget {
+  final IconData icon;
+  final bool isProfile;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, this.isProfile = false, required this.onTap});
+
+  @override
+  State<_IconBtn> createState() => _IconBtnState();
+}
+
+class _IconBtnState extends State<_IconBtn> {
+  bool _p = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _p = true),
+      onTapUp: (_) => setState(() => _p = false),
+      onTapCancel: () => setState(() => _p = false),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _p ? 0.9 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: widget.isProfile
+              ? BoxDecoration(
+                  gradient: _glassRedGradient(),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0x4DD90429), width: 1),
+                  boxShadow: _glassRedShadow(),
+                )
+              : BoxDecoration(
+                  color: NetherColors.bgCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: NetherColors.border, width: 1),
+                ),
+          child: Icon(widget.icon, color: Colors.white, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── HERO BANNER ────────────────────────────────────────────────────
+class _HeroBanner extends StatelessWidget {
+  final int deviceCount;
+  const _HeroBanner({required this.deviceCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 220,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CachedNetworkImage(
+              imageUrl: 'https://files.catbox.moe/ecbir8.jpg',
+              fit: BoxFit.cover,
+              placeholder: (_, __) => Container(color: NetherColors.bgCardInner),
+              errorWidget: (_, __, ___) => Container(
+                color: NetherColors.bgCardInner,
+                child: const Icon(Icons.broken_image_outlined, color: Colors.white24, size: 48),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [NetherColors.bgMain, Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: const Alignment(0, -0.6),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            bottom: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$deviceCount',
+                  style: TextStyle(
+                    color: NetherColors.redPrimary,
+                    fontSize: 56,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                    shadows: [Shadow(color: NetherColors.redGlow, blurRadius: 15)],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'TOTAL DEVICES',
+                  style: TextStyle(
+                    color: NetherColors.textSec,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── PROFILE CARD (NXT PROJECT) ─────────────────────────────────────
+class _ProfileCard extends StatelessWidget {
+  final String username;
+  final String role;
+  final String expiredDate;
+  const _ProfileCard({
+    required this.username,
+    required this.role,
+    required this.expiredDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: NetherColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: NetherColors.border, width: 1),
+        boxShadow: const [
+          BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Center(
+            child: RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                ),
+                children: [
+                  TextSpan(text: 'NXT ', style: TextStyle(color: Colors.white)),
+                  TextSpan(text: 'PROJECT', style: TextStyle(color: NetherColors.redPrimary)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          // Body
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [NetherColors.redPrimary, NetherColors.redDeep]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: NetherColors.redGlow, blurRadius: 20, offset: const Offset(0, 8)),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: CachedNetworkImage(
+                    imageUrl: 'https://files.catbox.moe/imgd04.jpg',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      width: 72,
+                      height: 72,
+                      color: NetherColors.bgCardInner,
+                      child: const Icon(Icons.person, color: Colors.white54),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      width: 72,
+                      height: 72,
+                      color: NetherColors.bgCardInner,
+                      child: const Icon(Icons.person, color: Colors.white54),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      username,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(FontAwesomeIcons.userShield, color: NetherColors.redPrimary, size: 11),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'ROLE: ${role.toUpperCase()}',
+                            style: const TextStyle(
+                              color: NetherColors.redPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.event_busy_outlined, color: NetherColors.textMuted, size: 13),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'EXP: $expiredDate',
+                            style: const TextStyle(
+                              color: NetherColors.textSec,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Bottom
+          Container(
+            padding: const EdgeInsets.only(top: 16),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: NetherColors.border, width: 1)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.access_time_rounded, color: NetherColors.textMuted, size: 14),
+                    SizedBox(width: 8),
+                    Text(
+                      'SESSION ACTIVE',
+                      style: TextStyle(
+                        color: NetherColors.textSec,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: const [
+                    Icon(Icons.call_split_rounded, color: NetherColors.textMuted, size: 14),
+                    SizedBox(width: 8),
+                    Text(
+                      'VER',
+                      style: TextStyle(
+                        color: NetherColors.textSec,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '1.0',
+                      style: TextStyle(
+                        color: NetherColors.redPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── PROMO CAROUSEL ─────────────────────────────────────────────────
+class _PromoCarousel extends StatefulWidget {
+  const _PromoCarousel();
+
+  @override
+  State<_PromoCarousel> createState() => _PromoCarouselState();
+}
+
+class _PromoCarouselState extends State<_PromoCarousel> {
+  int _current = 0;
+  late PageController _ctrl;
+
+  static const List<Map<String, String>> _banners = [
+    {
+      'image': 'https://picsum.photos/seed/netherpromo1/600/300.jpg',
+      'title': 'Netherite Community',
+      'subtitle': 'Gabung diskusi & support',
+    },
+    {
+      'image': 'https://picsum.photos/seed/netherpromo2/600/300.jpg',
+      'title': 'Update v2.4 Rilis',
+      'subtitle': 'Lihat apa yang baru di sini',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.asset(widget.videoPath)
-      ..initialize().then((_) {
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller.setLooping(true);
-        _controller.play();
-      }).catchError((error) {
-        debugPrint('Error loading video: $error');
-        setState(() {
-          _isInitialized = true;
-        });
-      });
+    _ctrl = PageController();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        color: NetherColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.gold.withOpacity(0.4),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.red1.withOpacity(0.15),
-            blurRadius: 25,
-            spreadRadius: 3,
-          ),
-          BoxShadow(
-            color: AppColors.red3.withOpacity(0.1),
-            blurRadius: 15,
-          ),
+        border: Border.all(color: NetherColors.border, width: 1),
+        boxShadow: const [
+          BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: _isInitialized && _controller.value.isInitialized
-              ? Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    VideoPlayer(_controller),
-                    // Tombol Play/Pause
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _controller.value.isPlaying
-                                ? _controller.pause()
-                                : _controller.play();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.gold.withOpacity(0.3),
-                              width: 1,
+      child: Column(
+        children: [
+          SizedBox(
+            height: 160,
+            child: PageView.builder(
+              controller: _ctrl,
+              itemCount: _banners.length,
+              onPageChanged: (i) => setState(() => _current = i),
+              itemBuilder: (_, i) {
+                final b = _banners[i];
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: NetherColors.border, width: 1),
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: b['image']!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: NetherColors.bgCardInner),
+                        errorWidget: (_, __, ___) => Container(
+                          color: NetherColors.bgCardInner,
+                          child: const Icon(Icons.image_outlined, color: Colors.white24),
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xE6050507),
+                              const Color(0x33050507),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              b['title']!.toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
                             ),
-                          ),
-                          child: Icon(
-                            _controller.value.isPlaying
-                                ? Icons.pause
-                                : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                            const SizedBox(height: 2),
+                            Text(
+                              b['subtitle']!,
+                              style: const TextStyle(
+                                color: NetherColors.textSec,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    // Progress bar sederhana
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: 3,
-                        color: Colors.black.withOpacity(0.3),
-                        child: FractionallySizedBox(
-                          widthFactor: _controller.value.isInitialized
-                              ? _controller.value.position.inMilliseconds /
-                                  _controller.value.duration.inMilliseconds
-                              : 0,
-                          child: Container(
-                            color: AppColors.red1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : Container(
-                  color: AppColors.surface2,
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: AppColors.red1,
-                        ),
-                        SizedBox(height: 12),
-                        Text(
-                          'Loading video...',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Promo dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_banners.length, (i) {
+              return GestureDetector(
+                onTap: () => _ctrl.animateToPage(i,
+                    duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == _current ? 20 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i == _current ? NetherColors.redPrimary : NetherColors.textMuted,
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── ENHANCED THANKS TO WIDGET ─────────────────────────────────────
-class _ThanksToWidget extends StatelessWidget {
-  const _ThanksToWidget();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassCard(
-      radius: 20,
-      borderColor: AppColors.gold.withOpacity(0.3),
-      gradient: [AppColors.surface2.withOpacity(0.95), AppColors.cardDark.withOpacity(0.95)],
-      onTap: () => Navigator.push(context, _createRoute(const ThanksToPage())),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: ShadowUtils.soft,
-              border: Border.all(color: AppColors.gold.withOpacity(0.2), width: 0.5),
-            ),
-            child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+              );
+            }),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Thanks To', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('Orang orang yang berkontribusi', style: TextStyle(color: AppColors.textSec, fontSize: 11)),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_ios_rounded, color: AppColors.gold, size: 14),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── SELECT DEVICES WIDGET ─────────────────────────────────────
-class _SelectDevicesWidget extends StatefulWidget {
-  final String sessionKey;
-  const _SelectDevicesWidget({required this.sessionKey});
-
-  @override
-  State<_SelectDevicesWidget> createState() => _SelectDevicesWidgetState();
-}
-
-class _SelectDevicesWidgetState extends State<_SelectDevicesWidget> {
-  List<dynamic> _devices = [];
-  bool _loading = true;
-  static const String _kBase = 'http://szxennofficial.qoupayid.xyz:3591';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDevices();
-  }
-
-  Future<void> _loadDevices() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_kBase/rat/my-devices?key=${widget.sessionKey}'),
-      ).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        if (body['valid'] == true) {
-          setState(() {
-            _devices = body['devices'] ?? [];
-            _loading = false;
-          });
-        }
-      }
-    } catch (e) {
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassCard(
-      radius: 20,
-      borderColor: AppColors.red1.withOpacity(0.2),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.devices_rounded, color: Colors.white, size: 16),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'SELECT DEVICES',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 1,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${_devices.length} devices',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_loading)
-            const Center(child: CircularProgressIndicator(color: AppColors.red1))
-          else if (_devices.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Belum ada device terhubung',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 60,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _devices.length,
-                itemBuilder: (ctx, i) {
-                  final d = _devices[i];
-                  final isOnline = d['online'] == true;
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isOnline ? AppColors.red1.withOpacity(0.1) : AppColors.surface2,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isOnline ? AppColors.red1.withOpacity(0.3) : AppColors.textMuted.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.phone_android_rounded,
-                          color: isOnline ? AppColors.red1 : AppColors.textMuted,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          d['model']?.toString() ?? 'Unknown',
-                          style: TextStyle(
-                            color: isOnline ? AppColors.textPrimary : AppColors.textMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: isOnline ? AppColors.success : AppColors.textMuted,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── TELEGRAM COMMUNITY WIDGET ────────────────────────────────────
-class _TelegramCommunityWidget extends StatelessWidget {
-  const _TelegramCommunityWidget();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassCard(
-      radius: 20,
-      borderColor: AppColors.gold.withOpacity(0.3),
-      gradient: [AppColors.surface2.withOpacity(0.95), AppColors.cardDark.withOpacity(0.95)],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: ShadowUtils.soft,
-                  border: Border.all(color: AppColors.gold.withOpacity(0.2), width: 0.5),
-                ),
-                child: const Icon(FontAwesomeIcons.telegram, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Telegram Community',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    Text(
-                      'Gabung ke grup telegram kami untuk mendapatkan berita terbaru, bantuan support dari admin, serta berdiskusi bersama anggota lainnya secara langsung.',
-                      style: TextStyle(color: AppColors.textSec, fontSize: 11),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          // Join Telegram button (glass red)
           GestureDetector(
             onTap: () async {
+              HapticFeedback.lightImpact();
               final uri = Uri.parse('https://t.me/NetheriteProject');
-              if (await canLaunchUrl(uri)) await launchUrl(uri);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
             },
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
+                gradient: _glassRedGradient(),
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: ShadowUtils.soft,
-                border: Border.all(color: AppColors.gold.withOpacity(0.2), width: 0.5),
+                border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                boxShadow: _glassRedShadow(),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -851,12 +649,12 @@ class _TelegramCommunityWidget extends StatelessWidget {
                   Icon(FontAwesomeIcons.telegram, color: Colors.white, size: 16),
                   SizedBox(width: 8),
                   Text(
-                    'Join Community',
+                    'Join Telegram',
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: 1,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
@@ -869,79 +667,874 @@ class _TelegramCommunityWidget extends StatelessWidget {
   }
 }
 
-// ─── MAIN DASHBOARD PAGE ───────────────────────────────────────────
+// ─── SELECT DEVICE SECTION ──────────────────────────────────────────
+class _SelectDeviceSection extends StatefulWidget {
+  final String sessionKey;
+  final void Function(int totalDevices) onDevicesLoaded;
+  final void Function(String msg) showToast;
+  const _SelectDeviceSection({
+    required this.sessionKey,
+    required this.onDevicesLoaded,
+    required this.showToast,
+  });
+
+  @override
+  State<_SelectDeviceSection> createState() => _SelectDeviceSectionState();
+}
+
+class _SelectDeviceSectionState extends State<_SelectDeviceSection> {
+  List<dynamic> _devices = [];
+  bool _loading = true;
+  String _filter = 'ALL';
+  int _currentSlide = 0;
+  late PageController _slideCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = PageController();
+    _loadDevices();
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$_kBase/rat/my-devices?key=${widget.sessionKey}'))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['valid'] == true) {
+          final devices = body['devices'] ?? [];
+          if (mounted) {
+            setState(() {
+              _devices = devices;
+              _loading = false;
+            });
+            widget.onDevicesLoaded(_devices.length);
+          }
+          return;
+        }
+      }
+      if (mounted) {
+        setState(() => _loading = false);
+        widget.onDevicesLoaded(0);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+        widget.onDevicesLoaded(0);
+      }
+    }
+  }
+
+  List<dynamic> get _filtered {
+    if (_filter == 'ALL') return _devices;
+    if (_filter == 'ONLINE') return _devices.where((d) => d['online'] == true).toList();
+    return _devices.where((d) => d['online'] != true).toList();
+  }
+
+  int get _countOnline => _devices.where((d) => d['online'] == true).length;
+  int get _countOffline => _devices.where((d) => d['online'] != true).length;
+
+  void _switchFilter(String f) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _filter = f;
+      _currentSlide = 0;
+    });
+    if (_slideCtrl.hasClients) {
+      _slideCtrl.jumpToPage(0);
+    }
+    widget.showToast('Menampilkan device ${f.toLowerCase()}');
+  }
+
+  int _safeInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: NetherColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: NetherColors.border, width: 1),
+        boxShadow: const [
+          BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: NetherColors.redSoftBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.phone_android_rounded, color: NetherColors.redPrimary, size: 16),
+              ),
+              const SizedBox(width: 12),
+              RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                  children: [
+                    TextSpan(text: 'SELECT ', style: TextStyle(color: Colors.white)),
+                    TextSpan(text: 'DEVICE', style: TextStyle(color: NetherColors.redPrimary)),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: NetherColors.bgCardInner,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: NetherColors.border, width: 1),
+                ),
+                child: const Text(
+                  'ID: 5a44cb50',
+                  style: TextStyle(
+                    color: NetherColors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Tabs
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: NetherColors.bgCardInner,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: NetherColors.border, width: 1),
+            ),
+            child: Row(
+              children: [
+                _Tab(
+                  label: 'ALL',
+                  count: _devices.length,
+                  dotColor: null,
+                  isActive: _filter == 'ALL',
+                  onTap: () => _switchFilter('ALL'),
+                ),
+                _Tab(
+                  label: 'ONLINE',
+                  count: _countOnline,
+                  dotColor: NetherColors.success,
+                  isActive: _filter == 'ONLINE',
+                  onTap: () => _switchFilter('ONLINE'),
+                ),
+                _Tab(
+                  label: 'OFFLINE',
+                  count: _countOffline,
+                  dotColor: NetherColors.redPrimary,
+                  isActive: _filter == 'OFFLINE',
+                  onTap: () => _switchFilter('OFFLINE'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Device slider
+          if (_loading)
+            const SizedBox(
+              height: 240,
+              child: Center(child: CircularProgressIndicator(color: NetherColors.redPrimary)),
+            )
+          else if (_filtered.isEmpty)
+            SizedBox(
+              height: 180,
+              child: Center(
+                child: Text(
+                  'Tidak ada device ${_filter.toLowerCase()}',
+                  style: const TextStyle(
+                    color: NetherColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: [
+                SizedBox(
+                  height: 240,
+                  child: PageView.builder(
+                    controller: _slideCtrl,
+                    itemCount: _filtered.length,
+                    onPageChanged: (i) => setState(() => _currentSlide = i),
+                    itemBuilder: (_, i) {
+                      final d = _filtered[i];
+                      final isOffline = d['online'] != true;
+                      final name = (d['name'] ?? d['model'] ?? 'Unknown Device').toString();
+                      final model = (d['model'] ?? '-').toString();
+                      return _DeviceSlide(
+                        name: name,
+                        model: model,
+                        isOffline: isOffline,
+                        battery: _safeInt(d['battery']),
+                        os: (d['os'] ?? '-').toString(),
+                        ip: (d['ip'] ?? '-').toString(),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_filtered.length, (i) {
+                    return GestureDetector(
+                      onTap: () => _slideCtrl.animateToPage(i,
+                          duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _currentSlide ? 20 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == _currentSlide ? NetherColors.redPrimary : NetherColors.textMuted,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color? dotColor; // null = white (ALL), success = online, red = offline
+  final bool isActive;
+  final VoidCallback onTap;
+  const _Tab({
+    required this.label,
+    required this.count,
+    required this.dotColor,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeDotColor = dotColor ?? Colors.white;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: const Cubic(0.16, 1, 0.3, 1),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: isActive
+              ? BoxDecoration(
+                  gradient: _glassRedGradient(),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x66D90429), width: 1),
+                  boxShadow: _glassRedShadow(),
+                )
+              : BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isActive ? activeDotColor : Colors.transparent,
+                  border: Border.all(
+                    color: isActive ? Colors.transparent : NetherColors.textMuted,
+                    width: 1,
+                  ),
+                  boxShadow: isActive && dotColor != null
+                      ? [BoxShadow(color: dotColor!, blurRadius: 6)]
+                      : (isActive && dotColor == null
+                          ? [const BoxShadow(color: Colors.white, blurRadius: 6)]
+                          : null),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$label ($count)',
+                style: TextStyle(
+                  color: isActive ? Colors.white : NetherColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceSlide extends StatelessWidget {
+  final String name;
+  final String model;
+  final bool isOffline;
+  final int battery;
+  final String os;
+  final String ip;
+  const _DeviceSlide({
+    required this.name,
+    required this.model,
+    required this.isOffline,
+    required this.battery,
+    required this.os,
+    required this.ip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = isOffline ? NetherColors.redPrimary : NetherColors.success;
+    final statusLabel = isOffline ? 'OFFLINE' : 'ONLINE';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: NetherColors.bgCardInner,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: NetherColors.border, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    // Device icon with status dot
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: NetherColors.bgMain,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: NetherColors.border, width: 1),
+                          ),
+                          child: const Icon(Icons.phone_android_rounded, color: NetherColors.redPrimary, size: 22),
+                        ),
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: statusColor,
+                              border: Border.all(color: NetherColors.bgCardInner, width: 3),
+                              boxShadow: [BoxShadow(color: statusColor.withOpacity(0.4), blurRadius: 8)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            model,
+                            style: const TextStyle(
+                              color: NetherColors.textSec,
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOffline ? NetherColors.redSoftBg : const Color(0x1A34D399),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isOffline ? const Color(0x33D90429) : const Color(0x334D399),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: statusColor,
+                        boxShadow: isOffline ? null : [BoxShadow(color: statusColor, blurRadius: 4)],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      statusLabel,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Battery section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: NetherColors.bgMain,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: NetherColors.bgCardInner,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        isOffline ? Icons.battery_alert_outlined : Icons.battery_charging_full,
+                        color: statusColor,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'BATTERY LEVEL',
+                      style: TextStyle(
+                        color: NetherColors.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '$battery%',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: battery == 0 ? 0.0 : battery / 100.0,
+                    minHeight: 4,
+                    backgroundColor: const Color(0x0DFFFFFF),
+                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          // OS and IP grid
+          Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: NetherColors.bgMain,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: NetherColors.bgCardInner,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(FontAwesomeIcons.android, color: NetherColors.success, size: 12),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'OS',
+                            style: TextStyle(
+                              color: NetherColors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        os,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 1,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: NetherColors.bgMain,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: NetherColors.bgCardInner,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.wifi_rounded, color: NetherColors.redPrimary, size: 12),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'IP ADDRESS',
+                            style: TextStyle(
+                              color: NetherColors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        ip,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── FLOATING BOTTOM NAV ────────────────────────────────────────────
+class _FloatingBottomNav extends StatelessWidget {
+  final int activeIndex;
+  final ValueChanged<int> onTap;
+  const _FloatingBottomNav({required this.activeIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: NetherColors.bgCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: NetherColors.border, width: 1),
+            boxShadow: const [
+              BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 15)),
+            ],
+          ),
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'HOME',
+                isActive: activeIndex == 0,
+                onTap: () => onTap(0),
+              ),
+              _NavItem(
+                icon: Icons.phone_android_rounded,
+                label: 'DEVICE',
+                isActive: activeIndex == 1,
+                onTap: () => onTap(1),
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'PROFILE',
+                isActive: activeIndex == 2,
+                onTap: () => onTap(2),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _p = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: widget.isActive ? 3 : 2,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _p = true),
+        onTapUp: (_) => setState(() => _p = false),
+        onTapCancel: () => setState(() => _p = false),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _p ? 0.95 : 1.0,
+          duration: const Duration(milliseconds: 120),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: const Cubic(0.16, 1, 0.3, 1),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: widget.isActive
+                ? BoxDecoration(
+                    gradient: _glassRedGradient(),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0x66D90429), width: 1),
+                    boxShadow: _glassRedShadow(),
+                  )
+                : BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.icon,
+                  color: widget.isActive ? Colors.white : NetherColors.textMuted,
+                  size: 18,
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: const Cubic(0.16, 1, 0.3, 1),
+                  child: widget.isActive
+                      ? Row(
+                          children: [
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox(width: 0),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── MAIN DASHBOARD PAGE ────────────────────────────────────────────
 class DashboardPage extends StatefulWidget {
   final String username, password, role, expiredDate, sessionKey;
   final List<Map<String, dynamic>> listBug, listDoos;
   final List<dynamic> news;
 
-  const DashboardPage({super.key, required this.username, required this.password, required this.role,
-    required this.expiredDate, required this.listBug, required this.listDoos, required this.sessionKey, required this.news});
+  const DashboardPage({
+    super.key,
+    required this.username,
+    required this.password,
+    required this.role,
+    required this.expiredDate,
+    required this.listBug,
+    required this.listDoos,
+    required this.sessionKey,
+    required this.news,
+  });
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-const String _kBase = 'http://szxennofficial.qoupayid.xyz:3591';
-
-Route _createRoute(Widget page) {
-  return PageRouteBuilder(
-    transitionDuration: const Duration(milliseconds: 400),
-    pageBuilder: (context, animation, secondaryAnimation) => page,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      const curve = Curves.easeOutCubic;
-      var tween = Tween(begin: const Offset(0.03, 0.0), end: Offset.zero)
-          .chain(CurveTween(curve: curve));
-      var offsetAnimation = animation.drive(tween);
-      var fadeTween = Tween(begin: 0.0, end: 1.0)
-          .chain(CurveTween(curve: curve));
-      var fadeAnimation = animation.drive(fadeTween);
-      return FadeTransition(
-        opacity: fadeAnimation,
-        child: SlideTransition(
-          position: offsetAnimation,
-          child: child,
-        ),
-      );
-    },
-  );
-}
-
-class _DashboardPageState extends State<DashboardPage> with TickerProviderStateMixin {
-  late AnimationController _fadeCtrl;
-  late Animation<double> _fadeAnim;
-  late WebSocketChannel channel;
+class _DashboardPageState extends State<DashboardPage> {
+  WebSocketChannel? channel;
   late String sessionKey, username, role, expiredDate;
   String androidId = "unknown";
   int _bottomNavIndex = 0;
-  Widget _selectedPage = const SizedBox();
+  int _deviceCount = 0;
+
+  Timer? _toastTimer;
+  String? _toastMsg;
 
   @override
   void initState() {
     super.initState();
-    sessionKey = widget.sessionKey; username = widget.username; role = widget.role;
+    sessionKey = widget.sessionKey;
+    username = widget.username;
+    role = widget.role;
     expiredDate = widget.expiredDate;
-    
-    _fadeCtrl = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
-    _fadeCtrl.forward();
-    
-    _selectedPage = _buildDashboardHome();
     _initAndroidIdAndConnect();
   }
 
   Future<void> _initAndroidIdAndConnect() async {
-    final deviceInfo = await DeviceInfoPlugin().androidInfo;
-    androidId = deviceInfo.id;
+    try {
+      final deviceInfo = await DeviceInfoPlugin().androidInfo;
+      androidId = deviceInfo.id;
+    } catch (_) {
+      // keep default "unknown"
+    }
     _connectWebSocket();
   }
 
   void _connectWebSocket() {
-    channel = WebSocketChannel.connect(Uri.parse('wss://ws:papi.queen-official.com:5021:4000'));
-    channel.sink.add(jsonEncode({"type": "validate", "key": sessionKey, "androidId": androidId}));
-    channel.stream.listen((event) {
-      final data = jsonDecode(event);
-      if (data['type'] == 'myInfo' && data['valid'] == false) _showSessionExpired();
+    try {
+      channel = WebSocketChannel.connect(
+        Uri.parse('wss://ws:papi.queen-official.com:5021:4000'),
+      );
+      channel!.sink.add(jsonEncode({
+        "type": "validate",
+        "key": sessionKey,
+        "androidId": androidId,
+      }));
+      channel!.stream.listen(
+        (event) {
+          try {
+            final data = jsonDecode(event);
+            if (data is Map &&
+                data['type'] == 'myInfo' &&
+                data['valid'] == false) {
+              _showSessionExpired();
+            }
+          } catch (_) {}
+        },
+        onError: (_) {},
+      );
+    } catch (_) {}
+  }
+
+  void _showToast(String msg) {
+    if (!mounted) return;
+    setState(() => _toastMsg = msg);
+    _toastTimer?.cancel();
+    _toastTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _toastMsg = null);
     });
   }
 
@@ -949,29 +1542,52 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
     await SharedPreferences.getInstance().then((p) => p.clear());
     if (!mounted) return;
     showDialog(
-      context: context, barrierDismissible: false,
+      context: context,
+      barrierDismissible: false,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        child: _GlassCard(radius: 24,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.error, AppColors.red3]),
-                borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: NetherColors.bgCard,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: NetherColors.border, width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: _glassRedGradient(),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                ),
+                child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 24),
               ),
-              child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 24),
-            ),
-            const SizedBox(height: 12),
-            const Text("Session Expired", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            const Text("Silakan login kembali", style: TextStyle(color: AppColors.textSec)),
-            const SizedBox(height: 16),
-            _AnimatedDialogButton(
-              text: "OK",
-              onTap: () => Navigator.pushAndRemoveUntil(context, _createRoute(const LoginPage()), (r) => false),
-            ),
-          ]),
+              const SizedBox(height: 12),
+              const Text("Session Expired",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text("Silakan login kembali",
+                  style: TextStyle(color: NetherColors.textSec)),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => Navigator.pushAndRemoveUntil(
+                    context, _createRoute(const LoginPage()), (r) => false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: _glassRedGradient(),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                  ),
+                  child: const Text("OK",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -979,213 +1595,127 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
 
   void _onNavTapped(int index) {
     HapticFeedback.lightImpact();
-    setState(() {
-      _bottomNavIndex = index;
-      if (index == 0) {
-        _selectedPage = _buildDashboardHome();
-      } else if (index == 1) {
-        _selectedPage = ChatPage(
+    setState(() => _bottomNavIndex = index);
+    if (index == 0) {
+      // Home - already here
+      _showToast('Anda di Home');
+    } else if (index == 1) {
+      Navigator.push(
+        context,
+        _createRoute(DeviceDashboardPage(
           username: username,
+          role: role,
           sessionKey: sessionKey,
-        );
-      } else if (index == 2) {
-        _selectedPage = DeviceDashboardPage(username: username, role: role, sessionKey: sessionKey);
-      }
-    });
+        )),
+      ).then((_) {
+        if (mounted) setState(() => _bottomNavIndex = 0);
+      });
+    } else if (index == 2) {
+      _showAccountSheet();
+    }
   }
 
-  void _navigateToOwner() => Navigator.push(context, _createRoute(OwnerPage(sessionKey: sessionKey, username: username)));
-  void _showAccountSheet() => showModalBottomSheet(context: context, backgroundColor: Colors.transparent, builder: (_) => _AccountSheet(username: username, role: role, expiredDate: expiredDate, onLogout: _showLogoutDialog));
+  void _navigateToOwner() =>
+      Navigator.push(context, _createRoute(OwnerPage(sessionKey: sessionKey, username: username)));
+  void _navigateToTqto() =>
+      Navigator.push(context, _createRoute(const ThanksToPage()));
+  void _navigateToChat() =>
+      Navigator.push(context, _createRoute(ChatPage(username: username, sessionKey: sessionKey)));
 
-  Widget _buildDashboardHome() {
-    return _HexBackground(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-        physics: const BouncingScrollPhysics(),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Main Banner Video - FIXED
-          const _VideoBanner(
-            videoPath: 'assets/videos/flux.mp4',
-          ),
-          const SizedBox(height: 16),
-          const _ThanksToWidget(),
-          const SizedBox(height: 16),
-          // Banner Carousel
-          _BannerCarousel(banners: const [
-            {'image': 'assets/images/p.jpg', 'text': 'Netherite Executor'},
-          ]),
-          const SizedBox(height: 16),
-          _SelectDevicesWidget(sessionKey: sessionKey),
-          const SizedBox(height: 16),
-          const _TelegramCommunityWidget(),
-        ]),
-      ),
-    );
-  }
-
-  // ─── FLOATING PILL BOTTOM NAVIGATION ────────────────────────────────────
-  Widget _buildBottomNav() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Container(
-          height: 68,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.red1.withOpacity(0.25),
-              width: 1.0,
+  void _showAccountSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: NetherColors.bgCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: NetherColors.border, width: 1)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: NetherColors.textMuted,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.red1.withOpacity(0.12),
-                blurRadius: 24,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [NetherColors.redPrimary, NetherColors.redDeep]),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: NetherColors.redGlow, blurRadius: 20)],
               ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.6),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+              child: const CircleAvatar(
+                radius: 38,
+                backgroundColor: NetherColors.bgCard,
+                child: Icon(Icons.person, color: Colors.white, size: 36),
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _FloatingNavItem(
-                icon: Icons.grid_view_rounded,
-                label: 'Dashboard',
-                isActive: _bottomNavIndex == 0,
-                onTap: () => _onNavTapped(0),
-              ),
-              _FloatingNavItem(
-                icon: Icons.devices_outlined,
-                activeIcon: Icons.devices_rounded,
-                label: 'Device',
-                isActive: _bottomNavIndex == 2,
-                onTap: () => _onNavTapped(2),
-              ),
-              _FloatingNavItem(
-                icon: Icons.chat_bubble_outline_rounded,
-                activeIcon: Icons.chat_bubble_rounded,
-                label: 'Chat',
-                isActive: _bottomNavIndex == 1,
-                onTap: () => _onNavTapped(1),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.surface,
-      elevation: 0,
-      toolbarHeight: 60,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 12),
-        child: Builder(
-          builder: (ctx) => IconButton(
-            icon: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(width: 18, height: 2, color: AppColors.gold),
-              const SizedBox(height: 4),
-              Container(width: 12, height: 2, color: AppColors.gold.withOpacity(0.6)),
-              const SizedBox(height: 4),
-              Container(width: 8, height: 2, color: AppColors.gold.withOpacity(0.3)),
-            ]),
-            onPressed: () => Scaffold.of(ctx).openDrawer(),
-          ),
-        ),
-      ),
-      title: const _TypewriterText(
-        text: 'Netherite Executor', 
-        style: TextStyle(
-          fontWeight: FontWeight.bold, 
-          fontSize: 17, 
-          letterSpacing: 3,
-          color: Colors.white,
-        ),
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: _ProfileAvatar(onTap: _showAccountSheet),
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          height: 1,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.transparent, AppColors.red1, Colors.transparent],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: AppColors.surface,
-      width: MediaQuery.of(context).size.width * 0.8,
-      child: Column(children: [
-        Container(
-          height: 200,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            border: Border(bottom: BorderSide(color: AppColors.gold.withOpacity(0.2))),
-          ),
-          child: Center(
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              TweenAnimationBuilder(
-                duration: const Duration(milliseconds: 500),
-                tween: Tween<double>(begin: 0.8, end: 1.0),
-                curve: Curves.easeOutBack,
-                builder: (context, value, child) => Transform.scale(scale: value, child: child),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: ShadowUtils.heavy,
-                  ),
-                  child: const CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.transparent,
-                    child: Icon(Icons.person_outline, color: Colors.white, size: 40),
-                  ),
-                ),
+            const SizedBox(height: 12),
+            Text(username,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: NetherColors.redSoftBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x33D90429), width: 1),
               ),
-              const SizedBox(height: 8),
-              Text(username, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.gold.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.gold.withOpacity(0.3)),
-                ),
-                child: Text(role.toUpperCase(), style: TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
+              child: Text(
+                role.toUpperCase(),
+                style: const TextStyle(
+                    color: NetherColors.redPrimary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1),
               ),
-            ]),
-          ),
-        ),
-        Expanded(
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-            if (role.toLowerCase() == 'owner')
-              _DrawerItem(icon: Icons.storefront_rounded, title: 'Owner Page', onTap: () { Navigator.pop(context); _navigateToOwner(); }),
-            const SizedBox(height: 8),
-            Divider(color: AppColors.surface2),
-            const SizedBox(height: 8),
-            _DrawerItem(icon: Icons.logout_rounded, title: 'Logout', color: AppColors.error, onTap: () { Navigator.pop(context); _showLogoutDialog(); }),
+            ),
             const SizedBox(height: 20),
-            const Center(child: Text("POWERED BY HAFZ DAN AIISIGMA", style: TextStyle(color: AppColors.textMuted, fontSize: 9, letterSpacing: 2))),
-          ]),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Tutup",
+                        style: TextStyle(color: NetherColors.textMuted)),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showLogoutDialog();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: _glassRedGradient(),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                      ),
+                      child: const Center(
+                        child: Text("Logout",
+                            style: TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ]),
+      ),
     );
   }
 
@@ -1194,216 +1724,309 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        child: _GlassCard(radius: 24,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.warning, AppColors.red3]),
-                borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: NetherColors.bgCard,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: NetherColors.border, width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: _glassRedGradient(),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                ),
+                child: const Icon(Icons.logout_rounded, color: Colors.white, size: 24),
               ),
-              child: const Icon(Icons.logout_rounded, color: Colors.white, size: 24),
-            ),
-            const SizedBox(height: 12),
-            const Text("Konfirmasi Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            const Text("Yakin ingin logout?", style: TextStyle(color: AppColors.textSec)),
-            const SizedBox(height: 20),
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal", style: TextStyle(color: Colors.grey))),
-              const SizedBox(width: 8),
-              _AnimatedDialogButton(
-                text: "Logout",
-                onTap: () async {
-                  Navigator.pop(context);
-                  await SharedPreferences.getInstance().then((p) => p.clear());
-                  if (mounted) Navigator.pushAndRemoveUntil(context, _createRoute(const LoginPage()), (r) => false);
-                },
-                isError: true,
+              const SizedBox(height: 12),
+              const Text("Konfirmasi Logout",
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text("Yakin ingin logout?",
+                  style: TextStyle(color: NetherColors.textSec)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await SharedPreferences.getInstance().then((p) => p.clear());
+                      if (mounted) {
+                        Navigator.pushAndRemoveUntil(
+                            context, _createRoute(const LoginPage()), (r) => false);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: _glassRedGradient(),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: NetherColors.glassRedBorder, width: 1),
+                      ),
+                      child: const Text("Logout",
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
               ),
-            ]),
-          ]),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  @override Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      drawer: _buildDrawer(),
-      appBar: _buildAppBar(),
-      extendBody: true,
-      body: FadeTransition(opacity: _fadeAnim, child: _selectedPage),
-      bottomNavigationBar: _buildBottomNav(),
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 120),
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HeroBanner(deviceCount: _deviceCount),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Stagger(
+                  delay: const Duration(milliseconds: 50),
+                  child: _ProfileCard(
+                    username: username,
+                    role: role,
+                    expiredDate: expiredDate,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const _Stagger(
+                  delay: Duration(milliseconds: 150),
+                  child: _PromoCarousel(),
+                ),
+                const SizedBox(height: 16),
+                _Stagger(
+                  delay: const Duration(milliseconds: 250),
+                  child: _SelectDeviceSection(
+                    sessionKey: sessionKey,
+                    onDevicesLoaded: (count) {
+                      if (mounted) setState(() => _deviceCount = count);
+                    },
+                    showToast: _showToast,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  @override void dispose() {
-    channel.sink.close(status.goingAway);
-    _fadeCtrl.dispose();
+  Widget _buildDrawer() {
+    return Drawer(
+      backgroundColor: NetherColors.bgCard,
+      width: MediaQuery.of(context).size.width * 0.8,
+      child: Column(
+        children: [
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: _glassRedGradient(),
+              border: const Border(
+                  bottom: BorderSide(color: NetherColors.border, width: 1)),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    backgroundColor: NetherColors.bgCard,
+                    child: Icon(Icons.person_outline, color: Colors.white, size: 40),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(username,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: NetherColors.redSoftBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x33D90429), width: 1),
+                    ),
+                    child: Text(
+                      role.toUpperCase(),
+                      style: const TextStyle(
+                          color: NetherColors.redPrimary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (role.toLowerCase() == 'owner')
+                  _DrawerItem(
+                    icon: Icons.storefront_rounded,
+                    title: 'Owner Page',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _navigateToOwner();
+                    },
+                  ),
+                _DrawerItem(
+                  icon: Icons.favorite_outline_rounded,
+                  title: 'Thanks To',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _navigateToTqto();
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Chat',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _navigateToChat();
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Divider(color: NetherColors.bgCardInner),
+                const SizedBox(height: 8),
+                _DrawerItem(
+                  icon: Icons.logout_rounded,
+                  title: 'Logout',
+                  color: NetherColors.redPrimary,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showLogoutDialog();
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Center(
+                  child: Text(
+                    'POWERED BY HAFZ DAN AIISIGMA',
+                    style: TextStyle(
+                        color: NetherColors.textMuted,
+                        fontSize: 9,
+                        letterSpacing: 2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: NetherColors.bgMain,
+      drawer: _buildDrawer(),
+      body: Stack(
+        children: [
+          // Main content (topbar + scrollable body)
+          Column(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: _Topbar(
+                  onMenuTap: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                  onBellTap: () => _showToast('Notifikasi'),
+                  onProfileTap: _showAccountSheet,
+                ),
+              ),
+              Expanded(child: _buildHomeContent()),
+            ],
+          ),
+          // Floating bottom nav
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _FloatingBottomNav(
+              activeIndex: _bottomNavIndex,
+              onTap: _onNavTapped,
+            ),
+          ),
+          // Toast
+          if (_toastMsg != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 100,
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _toastMsg != null ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: NetherColors.bgCard,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: NetherColors.borderActive, width: 1),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Color(0x80000000),
+                            blurRadius: 30,
+                            offset: Offset(0, 10)),
+                      ],
+                    ),
+                    child: Text(
+                      _toastMsg ?? '',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    try {
+      channel?.sink.close(ws_status.goingAway);
+    } catch (_) {}
+    _toastTimer?.cancel();
     super.dispose();
   }
 }
 
-// ─── FLOATING NAV ITEM ──────────────────────────────────────────────
-class _FloatingNavItem extends StatefulWidget {
-  final IconData icon;
-  final IconData? activeIcon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _FloatingNavItem({
-    required this.icon,
-    this.activeIcon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  State<_FloatingNavItem> createState() => _FloatingNavItemState();
-}
-
-class _FloatingNavItemState extends State<_FloatingNavItem> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          widget.onTap();
-        },
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 120),
-          scale: _isPressed ? 0.94 : 1.0,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              decoration: widget.isActive
-                  ? BoxDecoration(
-                      color: AppColors.surface2.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.gold.withOpacity(0.5),
-                        width: 1.0,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.red1.withOpacity(0.2),
-                          blurRadius: 12,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    )
-                  : BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                child: Row(
-                  mainAxisAlignment: widget.isActive
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        widget.isActive
-                            ? (widget.activeIcon ?? widget.icon)
-                            : widget.icon,
-                        key: ValueKey(widget.isActive),
-                        color: widget.isActive
-                            ? AppColors.gold
-                            : AppColors.textMuted,
-                        size: 20,
-                      ),
-                    ),
-                    if (widget.isActive) ...[
-                      const SizedBox(width: 8),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: widget.isActive ? 1.0 : 0.0,
-                        child: Text(
-                          widget.label,
-                          style: const TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatefulWidget {
-  final VoidCallback onTap;
-
-  const _ProfileAvatar({required this.onTap});
-
-  @override
-  State<_ProfileAvatar> createState() => _ProfileAvatarState();
-}
-
-class _ProfileAvatarState extends State<_ProfileAvatar> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 100),
-        scale: _isPressed ? 0.92 : 1.0,
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-            boxShadow: ShadowUtils.soft,
-            border: Border.all(color: AppColors.gold.withOpacity(0.3), width: 1),
-          ),
-          child: const CircleAvatar(
-            radius: 16,
-            backgroundColor: Colors.transparent,
-            child: Icon(Icons.person_outline, color: Colors.white, size: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── DRAWER ITEM ────────────────────────────────────────────────────
-class _DrawerItem extends StatefulWidget {
+class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final Color? color;
   final VoidCallback onTap;
-
   const _DrawerItem({
     required this.icon,
     required this.title,
@@ -1412,199 +2035,23 @@ class _DrawerItem extends StatefulWidget {
   });
 
   @override
-  State<_DrawerItem> createState() => _DrawerItemState();
-}
-
-class _DrawerItemState extends State<_DrawerItem> {
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 100),
-        scale: _isPressed ? 0.98 : 1.0,
-        child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.surface2,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.red1.withOpacity(0.2)),
-            ),
-            child: Icon(widget.icon, color: widget.color ?? AppColors.gold, size: 18),
-          ),
-          title: Text(widget.title, style: TextStyle(color: widget.color ?? Colors.white, fontWeight: FontWeight.w500)),
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: NetherColors.bgCardInner,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: NetherColors.border, width: 1),
         ),
+        child: Icon(icon, color: color ?? Colors.white, size: 18),
       ),
-    );
-  }
-}
-
-// ─── ANIMATED DIALOG BUTTON ─────────────────────────────────────────
-class _AnimatedDialogButton extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-  final bool isError;
-
-  const _AnimatedDialogButton({
-    required this.text,
-    required this.onTap,
-    this.isError = false,
-  });
-
-  @override
-  State<_AnimatedDialogButton> createState() => _AnimatedDialogButtonState();
-}
-
-class _AnimatedDialogButtonState extends State<_AnimatedDialogButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 100),
-        scale: _isPressed ? 0.95 : 1.0,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: widget.isError
-                ? const LinearGradient(colors: [AppColors.error, AppColors.red3])
-                : const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.gold.withOpacity(0.2)),
-          ),
-          child: Text(
-            widget.text,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
+      title: Text(
+        title,
+        style: TextStyle(
+            color: color ?? Colors.white, fontWeight: FontWeight.w500),
       ),
-    );
-  }
-}
-
-// ─── ACCOUNT BOTTOM SHEET ───────────────────────────────────────────
-class _AccountSheet extends StatelessWidget {
-  final String username, role, expiredDate;
-  final VoidCallback onLogout;
-  const _AccountSheet({required this.username, required this.role, required this.expiredDate, required this.onLogout});
-
-  @override Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: ShadowUtils.heavy,
-        border: Border(top: BorderSide(color: AppColors.gold.withOpacity(0.2))),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-          borderRadius: BorderRadius.circular(2),
-        )),
-        const SizedBox(height: 16),
-        TweenAnimationBuilder(
-          duration: const Duration(milliseconds: 400),
-          tween: Tween<double>(begin: 0.8, end: 1.0),
-          curve: Curves.easeOutBack,
-          builder: (context, value, child) => Transform.scale(scale: value, child: child),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-              boxShadow: ShadowUtils.medium,
-              border: Border.all(color: AppColors.gold.withOpacity(0.3), width: 2),
-            ),
-            child: const CircleAvatar(
-              radius: 35,
-              backgroundColor: Colors.transparent,
-              child: Icon(Icons.person_outline, color: Colors.white, size: 35),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(username, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: AppColors.gold.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.gold.withOpacity(0.3)),
-          ),
-          child: Text(role.toUpperCase(), style: TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 20),
-        Row(children: [
-          Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("Tutup", style: TextStyle(color: Colors.grey)))),
-          Expanded(
-            child: _AnimatedSheetButton(
-              text: "Logout",
-              onTap: () { Navigator.pop(context); onLogout(); },
-              isError: true,
-            ),
-          ),
-        ]),
-      ]),
-    );
-  }
-}
-
-class _AnimatedSheetButton extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-  final bool isError;
-
-  const _AnimatedSheetButton({
-    required this.text,
-    required this.onTap,
-    this.isError = false,
-  });
-
-  @override
-  State<_AnimatedSheetButton> createState() => _AnimatedSheetButtonState();
-}
-
-class _AnimatedSheetButtonState extends State<_AnimatedSheetButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 100),
-        scale: _isPressed ? 0.97 : 1.0,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: widget.isError
-                ? const LinearGradient(colors: [AppColors.error, AppColors.red3])
-                : const LinearGradient(colors: [AppColors.red1, AppColors.red3]),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.gold.withOpacity(0.2)),
-          ),
-          child: TextButton(
-            onPressed: null,
-            child: Text(
-              widget.text,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-      ),
+      onTap: onTap,
     );
   }
 }
