@@ -34,7 +34,7 @@ class AppColors {
   static const red4          = Color(0xFF880E4F);
   
   // Metallic Accents
-  static const gold          = Color(0xFFC0C0C0);
+  static const gold          = Color(0xFFFFD700);
   static const silver        = Color(0xFFC0C0C0);
   static const chrome        = Color(0xFFE8E8E8);
   
@@ -1013,6 +1013,7 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
           // Banner Carousel
           _BannerCarousel(banners: const [
             {'image': 'assets/images/p.jpg', 'text': 'Netherite Executor'},
+            {'image': 'assets/images/l.jpg', 'text': 'Netherite Team Founder'},
           ]),
           const SizedBox(height: 16),
           _SelectDevicesWidget(sessionKey: sessionKey),
@@ -1060,18 +1061,18 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
                 onTap: () => _onNavTapped(0),
               ),
               _FloatingNavItem(
-                icon: Icons.devices_outlined,
-                activeIcon: Icons.devices_rounded,
-                label: 'Device',
-                isActive: _bottomNavIndex == 2,
-                onTap: () => _onNavTapped(2),
-              ),
-              _FloatingNavItem(
                 icon: Icons.chat_bubble_outline_rounded,
                 activeIcon: Icons.chat_bubble_rounded,
                 label: 'Chat',
                 isActive: _bottomNavIndex == 1,
                 onTap: () => _onNavTapped(1),
+              ),
+              _FloatingNavItem(
+                icon: Icons.devices_outlined,
+                activeIcon: Icons.devices_rounded,
+                label: 'Device',
+                isActive: _bottomNavIndex == 2,
+                onTap: () => _onNavTapped(2),
               ),
             ],
           ),
