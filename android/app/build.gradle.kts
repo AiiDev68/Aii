@@ -6,32 +6,55 @@ plugins {
 }
 
 android {
-    namespace = "com.ravencopy.id"
+    namespace = "com.motion.netherite"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.addAll(listOf(
+            "-Xlint:-deprecation",
+            "-Xlint:-unchecked",
+            "-Xlint:none",
+            "-nowarn"
+        ))
+        options.isWarnings = false
+    }
+
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
+        freeCompilerArgs = listOf("-Xno-source-debug-extension")
     }
 
     defaultConfig {
-        applicationId = "com.ravencopy.id"
-        minSdk = 23                         // ✅ ganti di sini
-        targetSdk = 35
+        applicationId = "com.motion.netherite"
+        minSdk = 21                         // ✅ ganti di sini
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
+    lint {
+        disable += "Deprecation"
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }

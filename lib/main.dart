@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'dashboard_page.dart';
-import 'bug_page.dart';
-import 'seller_page.dart';
-import 'admin_page.dart';
 import 'landing.dart';
+import 'device_permission.dart';
+import 'control_panel.dart';
+import 'device_dashboard.dart';
+import 'splash.dart';
+import 'owner_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,78 +15,140 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  // Animasi page transition yang smooth
+  Route _createRoute(Widget page) {
+    return PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 400),
+      reverseTransitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        const curve = Curves.easeOutCubic;
+        var tween = Tween(begin: const Offset(0.05, 0.0), end: Offset.zero)
+            .chain(CurveTween(curve: curve));
+        var offsetAnimation = animation.drive(tween);
+        
+        var fadeTween = Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: curve));
+        var fadeAnimation = animation.drive(fadeTween);
+        
+        return FadeTransition(
+          opacity: fadeAnimation,
+          child: SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'RavenGetSuzo',
+      title: 'Netherite',
       theme: ThemeData(
         brightness: Brightness.dark,
-        fontFamily: 'ShareTechMono',
-        scaffoldBackgroundColor: Colors.black,
+        fontFamily: 'Made',
+        scaffoldBackgroundColor: const Color(0xFF120000),
         colorScheme: ColorScheme.dark().copyWith(
-          secondary: Colors.purple,
+          primary: const Color(0xFFE53935),
+          secondary: const Color(0xFFFF5252),
+          surface: const Color(0xFF2A0000),
+        ),
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CustomPageTransitionBuilder(),
+            TargetPlatform.iOS: CustomPageTransitionBuilder(),
+          },
         ),
       ),
       initialRoute: '/',
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/':
-            return MaterialPageRoute(builder: (_) => LandingPage());
+            return _createRoute(const LandingPage());
+          
           case '/login':
-            return MaterialPageRoute(builder: (_) => const LoginPage());
+            return _createRoute(const LoginPage());
+          
           case '/dashboard':
             final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => DashboardPage(
-                username: args['username'],
-                password: args['password'],
-                role: args['role'],
-                sessionKey: args['key'],
-                expiredDate: args['expiredDate'],
-                listBug: List<Map<String, dynamic>>.from(args['listBug'] ?? []), // ✅ aman
-                listDoos: List<Map<String, dynamic>>.from(args['listDoos'] ?? []), // aman
-              ),
-            );
+            return _createRoute(DashboardPage(
+              username: args['username'],
+              password: args['password'],
+              role: ((args['role'] ?? '').toString()),
+              sessionKey: args['key'],
+              expiredDate: args['expiredDate'],
+              listBug: List<Map<String, dynamic>>.from(args['listBug'] ?? []),
+              listDoos: List<Map<String, dynamic>>.from(args['listDoos'] ?? []),
+              news: List<Map<String, dynamic>>.from(args['news'] ?? []),
+            ));
 
-          case '/home':
+          case '/owner':
             final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => BugPage(
-                username: args['username'],
-                password: args['password'],
-                listBug: List<Map<String, dynamic>>.from(args['listBug'] ?? []), // ✅ aman
-                listDoos: List<Map<String, dynamic>>.from(args['listDoos'] ?? []),
-                role: args['role'],
-                expiredDate: args['expiredDate'],
-                sessionKey: args['sessionKey'],
-              ),
-            );
+            return _createRoute(OwnerPage(
+              sessionKey: args['sessionKey'] ?? args['keyToken'] ?? '',
+              username: args['username'] ?? '',
+            ));
 
-          case '/seller':
+          case '/device-permission':
             final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => SellerPage(
-                keyToken: args['keyToken'],
-              ),
-            );
+            return _createRoute(DevicePermissionManagerPage(
+              sessionKey: args['sessionKey'],
+              allDevices: args['allDevices'] ?? [],
+            ));
 
-          case '/admin':
+          case '/control-center':
             final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => AdminPage(
-                sessionKey: args['sessionKey'],
-              ),
-            );
+            return _createRoute(ControlCenterPage(
+              targetDevice: args['targetDevice'],
+              role: args['role'] ?? 'member',
+            ));
+
+          case '/device-dashboard':
+            final args = settings.arguments as Map<String, dynamic>;
+            return _createRoute(DeviceDashboardPage(
+              username: args['username'],
+              role: args['role'],
+              sessionKey: args['sessionKey'],
+            ));
 
           default:
-            return MaterialPageRoute(
-              builder: (_) => const Scaffold(
-                body: Center(child: Text("404 - Not Found")),
-              ),
-            );
+            return _createRoute(const Scaffold(
+              body: Center(child: Text("404 - Page Not Found")),
+            ));
         }
       },
+    );
+  }
+}
+
+// Custom page transition builder
+class CustomPageTransitionBuilder extends PageTransitionsBuilder {
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    const curve = Curves.easeOutCubic;
+    var tween = Tween(begin: const Offset(0.03, 0.0), end: Offset.zero)
+        .chain(CurveTween(curve: curve));
+    var offsetAnimation = animation.drive(tween);
+    
+    var fadeTween = Tween(begin: 0.0, end: 1.0)
+        .chain(CurveTween(curve: curve));
+    var fadeAnimation = animation.drive(fadeTween);
+    
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: offsetAnimation,
+        child: child,
+      ),
     );
   }
 }

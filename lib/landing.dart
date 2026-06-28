@@ -1,10 +1,12 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'login_page.dart';
+import 'splash.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -13,161 +15,89 @@ class LandingPage extends StatefulWidget {
   State<LandingPage> createState() => _LandingPageState();
 }
 
-class _LandingPageState extends State<LandingPage>
-    with TickerProviderStateMixin {
+class _LandingPageState extends State<LandingPage> with SingleTickerProviderStateMixin {
+  // --- WARNA BARU (Hitam, Abu-abu, Merah Gelap) ---
+  final Color bgBlack = Colors.black;
+  final Color greyDark = Colors.grey[800]!;
+  final Color greyLight = Colors.grey[500]!;
+  final Color redDark = const Color(0xFFB71C1C);
 
-  late AnimationController _masterCtrl;
+  final Color glassBorder = Colors.white.withOpacity(0.15);
+  final Color cardBg = Colors.white.withOpacity(0.08);
 
-  late Animation<double>  _topFade;
-  late Animation<Offset>  _topSlide;
+  int _currentPage = 0;
+  late AnimationController _indicatorAnimController;
+  late Animation<double> _indicatorAnimation;
+  final PageController _pageController = PageController();
+  bool _isCheckingAuth = true;
 
-  late Animation<double>  _profileFade;
-  late Animation<Offset>  _profileSlide;
-
-  late Animation<double>  _bottomFade;
-  late Animation<Offset>  _bottomSlide;
-
-  late Animation<double>  _btnFade;
-  late Animation<Offset>  _btnSlide;
-  late Animation<double>  _btnScale;
-
-  late Animation<double>  _footerFade;
-
-  late AnimationController _pulseCtrl;
-  late Animation<double>  _pulseAnim;
-
-  late AnimationController _shimmerCtrl;
-
-  late VideoPlayerController _bgVideo;
-  bool _videoReady = false;
-
-  static const Color _accentRed  = Color(0xFFFF1744);
-  static const Color _bgDark     = Color(0xFF07090F);
-  static const Color _cardDark   = Color(0xFF0D1424);
-  static const Color _borderDark = Color(0xFF3A1520);
-  static const Color _deepRed    = Color(0xFF8B0000);
-  static const Color _softRed    = Color(0xFFE53935);
-  static const Color _glowRed    = Color(0xFFFF5252);
-
-  static const String _gallery1 = 'https://files.catbox.moe/imgd04.jpg';
-  static const String _gallery2 = 'https://files.catbox.moe/kn5t2b.jpg';
-  static const String _gallery3 = 'https://files.catbox.moe/su98nt.jpg';
+  // Base URL
+  static const String _baseUrl = 'http://szxennofficial.qoupayid.xyz:3591';
 
   @override
   void initState() {
     super.initState();
-    _initAnimations();
-    _initVideo();
-  }
+    _checkAutoLogin();
 
-  void _initAnimations() {
-    _masterCtrl = AnimationController(
+    _indicatorAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-
-    _topFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
-      ),
-    );
-    _topSlide = Tween<Offset>(
-      begin: const Offset(0, -0.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _masterCtrl,
-      curve: const Interval(0.0, 0.35, curve: Curves.easeOutCubic),
-    ));
-
-    _profileFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.10, 0.42, curve: Curves.easeOut),
-      ),
-    );
-    _profileSlide = Tween<Offset>(
-      begin: const Offset(-0.4, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _masterCtrl,
-      curve: const Interval(0.10, 0.42, curve: Curves.easeOutCubic),
-    ));
-
-    _bottomFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.22, 0.58, curve: Curves.easeOut),
-      ),
-    );
-    _bottomSlide = Tween<Offset>(
-      begin: const Offset(0, 0.6),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _masterCtrl,
-      curve: const Interval(0.22, 0.58, curve: Curves.easeOutCubic),
-    ));
-
-    _btnFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.40, 0.78, curve: Curves.easeOut),
-      ),
-    );
-    _btnSlide = Tween<Offset>(
-      begin: const Offset(0, 0.8),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _masterCtrl,
-      curve: const Interval(0.40, 0.78, curve: Curves.easeOutCubic),
-    ));
-    _btnScale = Tween<double>(begin: 0.82, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.60, 1.0, curve: Curves.elasticOut),
-      ),
-    );
-
-    _footerFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _masterCtrl,
-        curve: const Interval(0.50, 0.85, curve: Curves.easeOut),
-      ),
-    );
-
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
 
-    _pulseAnim = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    _indicatorAnimation = Tween<double>(begin: 6.0, end: 18.0).animate(
+      CurvedAnimation(parent: _indicatorAnimController, curve: Curves.easeInOut),
     );
-
-    _shimmerCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat();
-
-    _masterCtrl.forward();
   }
 
-  void _initVideo() {
-    _bgVideo = VideoPlayerController.asset('assets/videos/landing.mp4')
-      ..initialize().then((_) {
-        _bgVideo.setLooping(true);
-        _bgVideo.setVolume(0.0);
-        _bgVideo.play();
-        setState(() { _videoReady = true; });
-      });
+  Future<void> _checkAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString("username");
+    final savedPass = prefs.getString("password");
+    final savedKey = prefs.getString("key");
+
+    if (savedUser == null || savedPass == null || savedKey == null) {
+      setState(() => _isCheckingAuth = false);
+      return;
+    }
+
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final android = await deviceInfo.androidInfo;
+      final androidId = android.id ?? "unknown_device";
+
+      final uri = Uri.parse("$_baseUrl/myInfo?username=$savedUser&password=$savedPass&androidId=$androidId&key=$savedKey");
+      final res = await http.get(uri);
+      final data = jsonDecode(res.body);
+
+      if (data['valid'] == true) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SplashScreen(
+              username: savedUser,
+              password: savedPass,
+              role: data['role']?.toString() ?? '',
+              expiredDate: data['expiredDate']?.toString() ?? '',
+              sessionKey: data['key']?.toString() ?? savedKey,
+              listBug: (data['listBug'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+              listDoos: (data['listDDoS'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+              news: (data['news'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+            ),
+          ),
+        );
+      } else {
+        setState(() => _isCheckingAuth = false);
+      }
+    } catch (e) {
+      setState(() => _isCheckingAuth = false);
+    }
   }
 
   @override
   void dispose() {
-    _masterCtrl.dispose();
-    _pulseCtrl.dispose();
-    _shimmerCtrl.dispose();
-    _bgVideo.dispose();
+    _pageController.dispose();
+    _indicatorAnimController.dispose();
     super.dispose();
   }
 
@@ -178,560 +108,313 @@ class _LandingPageState extends State<LandingPage>
     }
   }
 
-  Future<String?> _fetchRegisterCode() async {
-    try {
-      final res = await http.get(Uri.parse("http://127.0.0.1:3000/getCode"));
-      if (res.statusCode == 200) {
-        final jsonData = jsonDecode(res.body);
-        return jsonData["code"]?.toString();
-      }
-    } catch (e) {
-      debugPrint("Error fetching code: $e");
-    }
-    return null;
-  }
-
-  Future<void> _signInWith(String type) async {
-    final code = await _fetchRegisterCode();
-    if (code == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to get registration code.")),
-      );
-      return;
-    }
-
-    final message = Uri.encodeComponent("""
-{ IndictiveCore }
-Executor Team
-Type: Register
-Code: $code
-Role: Member
-""");
-
-    if (type == "whatsapp") {
-      final whatsappUrl = "https://wa.me/6283820463478";
-      await _openUrl(whatsappUrl);
-    } else if (type == "telegram") {
-      final telegramUrl = "https://t.me/AiiSigma";
-      await _openUrl(telegramUrl);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingAuth) {
+      return Scaffold(
+        backgroundColor: bgBlack,
+        body: const Center(child: CircularProgressIndicator(color: Colors.grey)),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: _bgDark,
+      backgroundColor: bgBlack,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          _videoReady
-              ? SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _bgVideo.value.size.width,
-                      height: _bgVideo.value.size.height,
-                      child: VideoPlayer(_bgVideo),
-                    ),
-                  ),
-                )
-              : Container(color: _bgDark),
-
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.60),
-                  Colors.black.withOpacity(0.15),
-                  Colors.black.withOpacity(0.50),
-                  Colors.black.withOpacity(0.92),
-                ],
-                stops: const [0.0, 0.28, 0.65, 1.0],
+          // PageView untuk swipe up
+          PageView(
+            scrollDirection: Axis.vertical,
+            controller: _pageController,
+            onPageChanged: (int page) {
+              setState(() => _currentPage = page);
+            },
+            children: [
+              // PAGE 1: WELCOME
+              const Center(
+                child: Text(
+                  ".WELCOME.",
+                  style: TextStyle(color: Colors.white, fontSize: 42, fontWeight: FontWeight.bold, letterSpacing: 2),
+                ),
               ),
-            ),
-          ),
 
-          ..._buildFloatingParticles(),
-
-          SafeArea(
-            child: Column(
-              children: [
-                FadeTransition(
-                  opacity: _topFade,
-                  child: SlideTransition(
-                    position: _topSlide,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildBrandBadge(),
-                          const Spacer(),
-                          _buildGalleryPanel(),
-                        ],
-                      ),
+              // PAGE 2: DESKRIPSI (BAHASA INDONESIA)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text("Selamat Datang", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 20),
+                    Text(
+                      "Selamat datang di komunitas kami! Kami sangat berterima kasih atas kehadiran Anda. Di sini, Anda dapat menikmati kenyamanan sambil memanfaatkan teknologi terbaru dan berbagai alat yang berguna. Jika Anda memiliki pertanyaan atau kendala, jangan ragu untuk menghubungi tim dukungan kami. Selamat menikmati pengalaman Anda!",
+                      style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.6),
                     ),
-                  ),
+                  ],
                 ),
+              ),
 
-                FadeTransition(
-                  opacity: _profileFade,
-                  child: SlideTransition(
-                    position: _profileSlide,
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.only(left: 16, right: 16, top: 6),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _buildSystemProfile(),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const Spacer(),
-
-                FadeTransition(
-                  opacity: _bottomFade,
-                  child: SlideTransition(
-                    position: _bottomSlide,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'WELCOME TO',
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 11,
-                              letterSpacing: 5,
-                              fontFamily: 'ShareTechMono',
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _pulseAnim,
-                                builder: (context, child) {
-                                  return Container(
-                                    width: 56,
-                                    height: 56,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: _glowRed.withOpacity(
-                                            _pulseAnim.value * 0.6),
-                                        width: 2.5,
-                                      ),
-                                      color: _cardDark,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _glowRed.withOpacity(
-                                              _pulseAnim.value * 0.35),
-                                          blurRadius: 18,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipOval(
-                                      child: Image.asset(
-                                        'assets/images/logo.jpg',
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                          Icons.security_rounded,
-                                          color: _softRed,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 14),
-
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  AnimatedBuilder(
-                                    animation: _shimmerCtrl,
-                                    builder: (context, child) {
-                                      return ShaderMask(
-                                        shaderCallback: (bounds) {
-                                          final shimmerValue =
-                                              _shimmerCtrl.value;
-                                          return LinearGradient(
-                                            colors: const [
-                                              Colors.white,
-                                              Color(0xFFFF5252),
-                                              Color(0xFFFF1744),
-                                              Colors.white,
-                                              Color(0xFFE53935),
-                                              Colors.white,
-                                            ],
-                                            stops: [
-                                              (shimmerValue - 0.1)
-                                                  .clamp(0.0, 1.0),
-                                              (shimmerValue)
-                                                  .clamp(0.0, 1.0),
-                                              (shimmerValue + 0.1)
-                                                  .clamp(0.0, 1.0),
-                                              (shimmerValue + 0.3)
-                                                  .clamp(0.0, 1.0),
-                                              (shimmerValue + 0.4)
-                                                  .clamp(0.0, 1.0),
-                                              (shimmerValue + 0.5)
-                                                  .clamp(0.0, 1.0),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ).createShader(bounds);
-                                        },
-                                        child: const Text(
-                                          'Netherite Executor',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900,
-                                            fontFamily: 'Orbitron',
-                                            letterSpacing: 1.5,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Netherite-X  \u00B7  Premium Access',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.50),
-                                      fontSize: 11,
-                                      letterSpacing: 0.5,
-                                      fontFamily: 'ShareTechMono',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                FadeTransition(
-                  opacity: _btnFade,
-                  child: SlideTransition(
-                    position: _btnSlide,
-                    child: ScaleTransition(
-                      scale: _btnScale,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                        child: Column(
-                          children: [
-                            _buildActionButton(
-                              label: 'Sign-in Using Username',
-                              icon: Icons.person_outline_rounded,
-                              bgColor: _deepRed,
-                              glowColor: _accentRed,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const LoginPage()),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildActionButton(
-                              label: 'Beli Akses Ke Owner',
-                              icon: Icons.send_rounded,
-                              bgColor: const Color(0xFF1565C0),
-                              glowColor: const Color(0xFF42A5F5),
-                              onTap: () => _signInWith("telegram"),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                FadeTransition(
-                  opacity: _footerFade,
-                  child: _buildFooter(),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildFloatingParticles() {
-    return List.generate(15, (i) {
-      final random = math.Random(i + 42);
-      final topFraction = random.nextDouble();
-      final leftFraction = random.nextDouble();
-      final size = random.nextDouble() * 3 + 1;
-
-      return Positioned(
-        top: topFraction * 800,
-        left: leftFraction * 400,
-        child: AnimatedBuilder(
-          animation: _shimmerCtrl,
-          builder: (context, child) {
-            final phase = (i * 0.3 + _shimmerCtrl.value) % 1.0;
-            final opacity = math.sin(phase * math.pi) * 0.25;
-            final yOffset = math.sin(phase * math.pi * 2) * 15;
-            return Transform.translate(
-              offset: Offset(0, yOffset),
-              child: Opacity(
-                opacity: opacity.clamp(0.0, 0.25),
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    color: _glowRed,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _glowRed.withOpacity(0.3),
-                        blurRadius: size * 3,
-                      ),
+              // PAGE 3: LANDING ASLI (LOGIN + BUY)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      greyDark.withOpacity(0.5),
+                      bgBlack,
+                      Colors.black,
                     ],
                   ),
                 ),
-              ),
-            );
-          },
-        ),
-      );
-    });
-  }
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 40),
+                        // LOGO menggunakan assets/images/logo.png
+                        Container(
+                          width: 320,
+                          height: 400,
+                          child: Stack(
+                            alignment: Alignment.bottomCenter,
+                            children: [
+                              Positioned.fill(
+                                child: Image.asset(
+                                  "assets/images/executor.png",
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.white,
+                                      padding: const EdgeInsets.all(8.0),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        "ERROR:\n${error.toString()}",
+                                        style: const TextStyle(color: Colors.red, fontSize: 10),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 30),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ShaderMask(
+                                      shaderCallback: (bounds) => LinearGradient(
+                                        colors: [greyLight, Colors.white],
+                                      ).createShader(bounds),
+                                      child: const Text(
+                                        "Silakan Login atau Beli Akses untuk melanjutkan",
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                          shadows: [
+                                            Shadow(
+                                              blurRadius: 4,
+                                              color: Colors.black,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 40),
 
-  Widget _buildBrandBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_deepRed, _accentRed],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: _accentRed.withOpacity(0.5),
-            blurRadius: 14,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: const Text(
-        'Netherite Executor',
-        style: TextStyle(
-          color: Colors.white,
-          fontFamily: 'Orbitron',
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
+                        // TOMBOL SIGN IN (MERAH GELAP)
+                        Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [redDark, Colors.red.shade700],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: redDark.withOpacity(0.4),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LoginPage()),
+                              );
+                            },
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.login, color: Colors.white, size: 20),
+                                SizedBox(width: 10),
+                                Text(
+                                  "Sign In",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
 
-  Widget _buildGalleryPanel() {
-    final List<String> imgs = [_gallery1, _gallery2, _gallery3];
+                        const SizedBox(height: 16),
 
-    return Container(
-      width: 80,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _borderDark.withOpacity(0.7), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: _accentRed.withOpacity(0.08),
-            blurRadius: 15,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_deepRed, _accentRed],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Gallery',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          ...List.generate(3, (i) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: GestureDetector(
-                onTap: () => _openUrl(imgs[i]),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: Image.network(
-                    imgs[i],
-                    width: 64,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 64,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _cardDark,
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                            color: _borderDark.withOpacity(0.5), width: 1),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.image_outlined,
-                            color: Colors.white24, size: 18),
-                      ),
+                        // TOMBOL BUY ACCESS (MERAH GELAP, BORDER SAJA)
+                        Container(
+                          width: double.infinity,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: redDark.withOpacity(0.7), width: 1.5),
+                          ),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: () => _openUrl("https://t.me/hafz_reals"),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.shopping_bag,
+                                  color: redDark,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Beli Akses ke Owner",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: redDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 30),
+
+                        // Tombol Telegram Channel (abu-abu terang)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildContactButton(
+                                icon: FontAwesomeIcons.telegram,
+                                label: "Telegram Channel",
+                                url: "https://t.me/NetheriteProject",
+                                color: greyLight,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 40),
+                        const Text("© 2026 Vanguard of Your Rising Empire", style: TextStyle(color: Colors.white38, fontSize: 11)),
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
                 ),
               ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSystemProfile() {
-    return Container(
-      width: 215,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.50),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _borderDark.withOpacity(0.6), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: _accentRed.withOpacity(0.06),
-            blurRadius: 20,
-            spreadRadius: 2,
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.12), width: 1),
-            ),
-            child: const Text(
-              'Profile',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 8.5,
-                letterSpacing: 2,
-                fontFamily: 'ShareTechMono',
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
 
-          const Text(
-            'Netherite-X',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'ShareTechMono',
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          _profileRow('Theme', 'Netherite X'),
-          _profileRow('Node', 'Premium'),
-          _profileRow('Status', 'Online'),
-          _profileRow('Version', 'v2.0.0'),
-        ],
-      ),
-    );
-  }
-
-  Widget _profileRow(String key, String val) {
-    final isStatus = key == 'Status';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
-      child: Row(
-        children: [
-          if (isStatus)
-            Container(
-              width: 6,
-              height: 6,
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                color: Colors.greenAccent,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.greenAccent.withOpacity(0.6),
-                    blurRadius: 6,
+          // HEADER TETAP 
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text("Netherite Executor", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      SizedBox(width: 5),
+                    ],
                   ),
+                  const SizedBox(height: 5),
+                  const Text("Version 1.0", style: TextStyle(color: Colors.white54, fontSize: 12)),
                 ],
               ),
             ),
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                fontFamily: 'ShareTechMono',
-                fontSize: 11,
-                height: 1.6,
+          ),
+
+          // FOOTER SWIPE (HILANG DI PAGE 3)
+          Positioned(
+            bottom: 30, left: 0, right: 0,
+            child: Center(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _currentPage == 2 ? 0.0 : 1.0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22, height: 45,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white54, width: 2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      alignment: Alignment.topCenter,
+                      child: AnimatedBuilder(
+                        animation: _indicatorAnimation,
+                        builder: (context, child) => Padding(
+                          padding: EdgeInsets.only(top: _indicatorAnimation.value),
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Colors.white54,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      "Geser ke atas untuk melanjutkan",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
               ),
-              children: [
-                TextSpan(
-                    text: '$key: ',
-                    style: const TextStyle(color: Colors.white54)),
-                TextSpan(
-                    text: val,
-                    style: TextStyle(
-                      color: isStatus
-                          ? Colors.greenAccent
-                          : Colors.white,
-                      fontWeight: isStatus ? FontWeight.w600 : FontWeight.normal,
-                    )),
-              ],
             ),
           ),
         ],
@@ -739,143 +422,37 @@ Role: Member
     );
   }
 
-  Widget _buildActionButton({
-    required String label,
+  Widget _buildContactButton({
     required IconData icon,
-    required Color bgColor,
-    required Color glowColor,
-    required VoidCallback onTap,
+    required String label,
+    required String url,
+    required Color color,
   }) {
-    return Container(
-      width: double.infinity,
-      height: 52,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [bgColor, glowColor],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return InkWell(
+      onTap: () => _openUrl(url),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: cardBg,
+          border: Border.all(color: glassBorder),
+          borderRadius: BorderRadius.circular(12),
         ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: glowColor.withOpacity(0.45),
-            blurRadius: 14,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(28),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(28),
-          onTap: onTap,
-          splashColor: Colors.white.withOpacity(0.15),
-          highlightColor: Colors.white.withOpacity(0.05),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Orbitron',
-                  letterSpacing: 1.5,
-                ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FaIcon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.10)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Contact Us',
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              fontFamily: 'ShareTechMono',
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () => _openUrl("https://t.me/AiiSigma"),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.blueAccent.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.blueAccent.withOpacity(0.3), width: 1),
-                  ),
-                  child: const Icon(
-                    Icons.send_rounded,
-                    color: Colors.blueAccent,
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                onTap: () => _openUrl("https://tiktok.com/@aiistecu"),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.white.withOpacity(0.12), width: 1),
-                  ),
-                  child: const Icon(
-                    Icons.music_note_rounded,
-                    color: Colors.white70,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            '\u00A9 2026 Netherite Executor',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-              fontFamily: 'ShareTechMono',
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
       ),
     );
   }

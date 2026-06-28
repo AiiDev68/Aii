@@ -9,7 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.5
+  http: ^0.13.6
+  intl: ^0.18.1
+  cached_network_image: ^3.3.0
+  youtube_player_flutter: ^9.1.1
   url_launcher: ^6.2.6
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.2
@@ -17,18 +20,19 @@ dependencies:
   carousel_slider: 4.0.0
   web_socket_channel: ^2.4.0
   network_info_plus: ^4.1.0
+  shimmer: ^3.0.0
+  webview_flutter: ^4.4.2
   permission_handler: ^11.0.0
   video_player: ^2.9.2
+  font_awesome_flutter: ^10.7.0
   path_provider: ^2.1.1
+  image_picker: ^1.0.5
   share_plus: ^7.0.1
-  chewie: ^1.5.2
-  shimmer: ^3.0.0
-  firebase_core: ^2.25.4
-  cloud_firestore: ^4.15.4
-  webview_flutter: ^4.4.2
+  chewie: ^1.8.5
+  audioplayers: ^6.1.0
 
 dev_dependencies:
-  flutter_launcher_icons: ^0.13.1 # versi terbaru saat ini
+  flutter_launcher_icons: ^0.13.1
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
@@ -45,16 +49,20 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/executor.png
+    - assets/videos/flux.mp4
     - assets/images/logo.jpg
-    - assets/images/rapen.jpg
-    - assets/images/anim.png
-    - assets/videos/landing.mp4
-    - assets/videos/splash.mp4
-
+    - assets/images/p.jpg
+    - assets/images/g.jpg
+    - assets/videos/load.mp4
+    - assets/videos/banner.mp4
+    
   fonts:
-    - family: Orbitron
+    - family: Made
       fonts:
         - asset: fonts/Made-Regular.ttf
-    - family: ShareTechMono
-      fonts:
-        - asset: fonts/ShareTechMono-Regular.ttf
+
+dependency_overrides:
+  collection: ^1.18.0
+  meta: ^1.10.0
+  flutter_inappwebview: ^6.0.0
