@@ -50,7 +50,6 @@ flutter:
 
   assets:
     - assets/images/executor.png
-    - assets/videos/flux.mp4
     - assets/images/logo.jpg
     - assets/images/p.jpg
     - assets/images/g.jpg

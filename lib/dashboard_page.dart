@@ -315,6 +315,7 @@ class _ProfileCard extends StatelessWidget {
             child: RichText(
               text: const TextSpan(
                 style: TextStyle(
+                  fontFamily: 'Made',
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2,
@@ -369,6 +370,7 @@ class _ProfileCard extends StatelessWidget {
                     Text(
                       username,
                       style: const TextStyle(
+                        fontFamily: 'Made',
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -386,6 +388,7 @@ class _ProfileCard extends StatelessWidget {
                           child: Text(
                             'ROLE: ${role.toUpperCase()}',
                             style: const TextStyle(
+                              fontFamily: 'Made',
                               color: NetherColors.redPrimary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -405,6 +408,7 @@ class _ProfileCard extends StatelessWidget {
                           child: Text(
                             'EXP: $expiredDate',
                             style: const TextStyle(
+                              fontFamily: 'Made',
                               color: NetherColors.textSec,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -437,6 +441,7 @@ class _ProfileCard extends StatelessWidget {
                     Text(
                       'SESSION ACTIVE',
                       style: TextStyle(
+                        fontFamily: 'Made',
                         color: NetherColors.textSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -452,6 +457,7 @@ class _ProfileCard extends StatelessWidget {
                     Text(
                       'VER',
                       style: TextStyle(
+                        fontFamily: 'Made',
                         color: NetherColors.textSec,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -462,6 +468,7 @@ class _ProfileCard extends StatelessWidget {
                     Text(
                       '1.0',
                       style: TextStyle(
+                        fontFamily: 'Made',
                         color: NetherColors.redPrimary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -479,8 +486,11 @@ class _ProfileCard extends StatelessWidget {
 }
 
 // ─── PROMO CAROUSEL ─────────────────────────────────────────────────
+// Renders banners from `news` data passed by the parent (sourced from API).
+// Each news item shape: { "image": <url>, "title": <string>, "desc": <string> }
 class _PromoCarousel extends StatefulWidget {
-  const _PromoCarousel();
+  final List<dynamic> news;
+  const _PromoCarousel({required this.news});
 
   @override
   State<_PromoCarousel> createState() => _PromoCarouselState();
@@ -489,19 +499,6 @@ class _PromoCarousel extends StatefulWidget {
 class _PromoCarouselState extends State<_PromoCarousel> {
   int _current = 0;
   late PageController _ctrl;
-
-  static const List<Map<String, String>> _banners = [
-    {
-      'image': 'https://picsum.photos/seed/netherpromo1/600/300.jpg',
-      'title': 'Netherite Community',
-      'subtitle': 'Gabung diskusi & support',
-    },
-    {
-      'image': 'https://picsum.photos/seed/netherpromo2/600/300.jpg',
-      'title': 'Update v2.4 Rilis',
-      'subtitle': 'Lihat apa yang baru di sini',
-    },
-  ];
 
   @override
   void initState() {
@@ -515,8 +512,32 @@ class _PromoCarouselState extends State<_PromoCarousel> {
     super.dispose();
   }
 
+  List<Map<String, String>> get _banners {
+    final List<Map<String, String>> out = [];
+    for (final raw in widget.news) {
+      if (raw is Map) {
+        final image = (raw['image'] ?? '').toString();
+        final title = (raw['title'] ?? '').toString();
+        final desc = (raw['desc'] ?? '').toString();
+        if (image.isNotEmpty || title.isNotEmpty) {
+          out.add({'image': image, 'title': title, 'subtitle': desc});
+        }
+      }
+    }
+    // Fallback so the card never appears empty if API returns no news
+    if (out.isEmpty) {
+      out.add({
+        'image': 'https://files.catbox.moe/aveyk3.jpg',
+        'title': 'Netherite Executor',
+        'subtitle': 'Developed By hafz & aiisigma',
+      });
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final banners = _banners;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -533,10 +554,10 @@ class _PromoCarouselState extends State<_PromoCarousel> {
             height: 160,
             child: PageView.builder(
               controller: _ctrl,
-              itemCount: _banners.length,
+              itemCount: banners.length,
               onPageChanged: (i) => setState(() => _current = i),
               itemBuilder: (_, i) {
-                final b = _banners[i];
+                final b = banners[i];
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   clipBehavior: Clip.antiAlias,
@@ -547,15 +568,21 @@ class _PromoCarouselState extends State<_PromoCarousel> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      CachedNetworkImage(
-                        imageUrl: b['image']!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: NetherColors.bgCardInner),
-                        errorWidget: (_, __, ___) => Container(
+                      if (b['image']!.isNotEmpty)
+                        CachedNetworkImage(
+                          imageUrl: b['image']!,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: NetherColors.bgCardInner),
+                          errorWidget: (_, __, ___) => Container(
+                            color: NetherColors.bgCardInner,
+                            child: const Icon(Icons.image_outlined, color: Colors.white24),
+                          ),
+                        )
+                      else
+                        Container(
                           color: NetherColors.bgCardInner,
                           child: const Icon(Icons.image_outlined, color: Colors.white24),
                         ),
-                      ),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -580,6 +607,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
                             Text(
                               b['title']!.toUpperCase(),
                               style: const TextStyle(
+                                fontFamily: 'Made',
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -590,6 +618,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
                             Text(
                               b['subtitle']!,
                               style: const TextStyle(
+                                fontFamily: 'Made',
                                 color: NetherColors.textSec,
                                 fontSize: 11,
                               ),
@@ -604,27 +633,28 @@ class _PromoCarouselState extends State<_PromoCarousel> {
             ),
           ),
           const SizedBox(height: 16),
-          // Promo dots
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_banners.length, (i) {
-              return GestureDetector(
-                onTap: () => _ctrl.animateToPage(i,
-                    duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _current ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _current ? NetherColors.redPrimary : NetherColors.textMuted,
-                    borderRadius: BorderRadius.circular(3),
+          // Promo dots (only show if more than 1 banner)
+          if (banners.length > 1)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(banners.length, (i) {
+                return GestureDetector(
+                  onTap: () => _ctrl.animateToPage(i,
+                      duration: const Duration(milliseconds: 300), curve: Curves.easeOut),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _current ? 20 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _current ? NetherColors.redPrimary : NetherColors.textMuted,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 14),
+                );
+              }),
+            ),
+          if (banners.length > 1) const SizedBox(height: 14),
           // Join Telegram button (glass red)
           GestureDetector(
             onTap: () async {
@@ -651,6 +681,7 @@ class _PromoCarouselState extends State<_PromoCarousel> {
                   Text(
                     'Join Telegram',
                     style: TextStyle(
+                      fontFamily: 'Made',
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -671,11 +702,9 @@ class _PromoCarouselState extends State<_PromoCarousel> {
 class _SelectDeviceSection extends StatefulWidget {
   final String sessionKey;
   final void Function(int totalDevices) onDevicesLoaded;
-  final void Function(String msg) showToast;
   const _SelectDeviceSection({
     required this.sessionKey,
     required this.onDevicesLoaded,
-    required this.showToast,
   });
 
   @override
@@ -751,7 +780,6 @@ class _SelectDeviceSectionState extends State<_SelectDeviceSection> {
     if (_slideCtrl.hasClients) {
       _slideCtrl.jumpToPage(0);
     }
-    widget.showToast('Menampilkan device ${f.toLowerCase()}');
   }
 
   int _safeInt(dynamic v) {
@@ -1352,8 +1380,8 @@ class _FloatingBottomNav extends StatelessWidget {
                 onTap: () => onTap(1),
               ),
               _NavItem(
-                icon: Icons.person_outline_rounded,
-                label: 'PROFILE',
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'CHAT',
                 isActive: activeIndex == 2,
                 onTap: () => onTap(2),
               ),
@@ -1480,8 +1508,14 @@ class _DashboardPageState extends State<DashboardPage> {
   int _bottomNavIndex = 0;
   int _deviceCount = 0;
 
-  Timer? _toastTimer;
-  String? _toastMsg;
+  // Key so the topbar hamburger menu can open the drawer from anywhere
+  // (Scaffold.of(context) doesn't work when context is above the Scaffold).
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // Cached pages so the bottom nav persists across tab switches.
+  // IndexedStack keeps all three pages alive — state, scroll position, and
+  // WebSocket connections are preserved when switching tabs.
+  late final List<Widget> _pages;
 
   @override
   void initState() {
@@ -1490,6 +1524,30 @@ class _DashboardPageState extends State<DashboardPage> {
     username = widget.username;
     role = widget.role;
     expiredDate = widget.expiredDate;
+
+    _pages = [
+      // Tab 0: Home (built fresh so it can reference _deviceCount via setState)
+      _buildHomeContent(),
+      // Tab 1: Device — wrapped in bottom padding so the floating nav
+      // doesn't overlap the owner permission button at bottom-left.
+      Padding(
+        padding: const EdgeInsets.only(bottom: 100),
+        child: DeviceDashboardPage(
+          username: username,
+          role: role,
+          sessionKey: sessionKey,
+        ),
+      ),
+      // Tab 2: Chat — same bottom padding treatment.
+      Padding(
+        padding: const EdgeInsets.only(bottom: 100),
+        child: ChatPage(
+          username: username,
+          sessionKey: sessionKey,
+        ),
+      ),
+    ];
+
     _initAndroidIdAndConnect();
   }
 
@@ -1527,15 +1585,6 @@ class _DashboardPageState extends State<DashboardPage> {
         onError: (_) {},
       );
     } catch (_) {}
-  }
-
-  void _showToast(String msg) {
-    if (!mounted) return;
-    setState(() => _toastMsg = msg);
-    _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _toastMsg = null);
-    });
   }
 
   void _showSessionExpired() async {
@@ -1596,23 +1645,6 @@ class _DashboardPageState extends State<DashboardPage> {
   void _onNavTapped(int index) {
     HapticFeedback.lightImpact();
     setState(() => _bottomNavIndex = index);
-    if (index == 0) {
-      // Home - already here
-      _showToast('Anda di Home');
-    } else if (index == 1) {
-      Navigator.push(
-        context,
-        _createRoute(DeviceDashboardPage(
-          username: username,
-          role: role,
-          sessionKey: sessionKey,
-        )),
-      ).then((_) {
-        if (mounted) setState(() => _bottomNavIndex = 0);
-      });
-    } else if (index == 2) {
-      _showAccountSheet();
-    }
   }
 
   void _navigateToOwner() =>
@@ -1790,47 +1822,61 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildHomeContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 120),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _HeroBanner(deviceCount: _deviceCount),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    return Column(
+      children: [
+        // Topbar only on Home tab — Device & Chat have their own AppBars.
+        SafeArea(
+          bottom: false,
+          child: _Topbar(
+            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+            onBellTap: () {},
+            onProfileTap: _showAccountSheet,
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 120),
+            physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Stagger(
-                  delay: const Duration(milliseconds: 50),
-                  child: _ProfileCard(
-                    username: username,
-                    role: role,
-                    expiredDate: expiredDate,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const _Stagger(
-                  delay: Duration(milliseconds: 150),
-                  child: _PromoCarousel(),
-                ),
-                const SizedBox(height: 16),
-                _Stagger(
-                  delay: const Duration(milliseconds: 250),
-                  child: _SelectDeviceSection(
-                    sessionKey: sessionKey,
-                    onDevicesLoaded: (count) {
-                      if (mounted) setState(() => _deviceCount = count);
-                    },
-                    showToast: _showToast,
+                _HeroBanner(deviceCount: _deviceCount),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Stagger(
+                        delay: const Duration(milliseconds: 50),
+                        child: _ProfileCard(
+                          username: username,
+                          role: role,
+                          expiredDate: expiredDate,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _Stagger(
+                        delay: const Duration(milliseconds: 150),
+                        child: _PromoCarousel(news: widget.news),
+                      ),
+                      const SizedBox(height: 16),
+                      _Stagger(
+                        delay: const Duration(milliseconds: 250),
+                        child: _SelectDeviceSection(
+                          sessionKey: sessionKey,
+                          onDevicesLoaded: (count) {
+                            if (mounted) setState(() => _deviceCount = count);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1945,27 +1991,19 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: NetherColors.bgMain,
       drawer: _buildDrawer(),
       body: Stack(
         children: [
-          // Main content (topbar + scrollable body)
-          Column(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: _Topbar(
-                  onMenuTap: () {
-                    Scaffold.of(context).openDrawer();
-                  },
-                  onBellTap: () => _showToast('Notifikasi'),
-                  onProfileTap: _showAccountSheet,
-                ),
-              ),
-              Expanded(child: _buildHomeContent()),
-            ],
+          // IndexedStack keeps all three pages mounted so the bottom nav
+          // persists across Home / Device / Chat tabs without pushing a
+          // new route.
+          IndexedStack(
+            index: _bottomNavIndex,
+            children: _pages,
           ),
-          // Floating bottom nav
+          // Floating bottom nav (persistent across all tabs)
           Positioned(
             left: 0,
             right: 0,
@@ -1975,37 +2013,6 @@ class _DashboardPageState extends State<DashboardPage> {
               onTap: _onNavTapped,
             ),
           ),
-          // Toast
-          if (_toastMsg != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 100,
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _toastMsg != null ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: NetherColors.bgCard,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: NetherColors.borderActive, width: 1),
-                      boxShadow: const [
-                        BoxShadow(
-                            color: Color(0x80000000),
-                            blurRadius: 30,
-                            offset: Offset(0, 10)),
-                      ],
-                    ),
-                    child: Text(
-                      _toastMsg ?? '',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -2016,7 +2023,6 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       channel?.sink.close(ws_status.goingAway);
     } catch (_) {}
-    _toastTimer?.cancel();
     super.dispose();
   }
 }
