@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,6 +80,70 @@ List<BoxShadow> _glassRedShadow() => const [
       BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4)),
       BoxShadow(color: Color(0x0DFFFFFF), blurRadius: 0, offset: Offset(0, 1)),
     ];
+
+// ─── DASHBOARD BG PATTERN (diamond lines, same as landing/login) ────
+// Draws the geometric red diamond pattern behind the dashboard content.
+// Visible through the glass cards via BackdropFilter blur.
+class _DashBgPainter extends CustomPainter {
+  static const double _tileSize = 300;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = NetherColors.redPrimary.withOpacity(0.5);
+    final innerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = NetherColors.redDeep.withOpacity(0.7);
+    final crossPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xFFFF5252).withOpacity(0.4);
+    final cornerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xFF3A1520).withOpacity(0.9);
+
+    final cols = (size.width / _tileSize).ceil() + 1;
+    final rows = (size.height / _tileSize).ceil() + 1;
+
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        final ox = col * _tileSize;
+        final oy = row * _tileSize;
+        // Outer diamond
+        final outer = Path()
+          ..moveTo(ox + 150, oy + 0)
+          ..lineTo(ox + 300, oy + 150)
+          ..lineTo(ox + 150, oy + 300)
+          ..lineTo(ox + 0, oy + 150)
+          ..close();
+        canvas.drawPath(outer, outerPaint);
+        // Inner diamond
+        final inner = Path()
+          ..moveTo(ox + 150, oy + 60)
+          ..lineTo(ox + 240, oy + 150)
+          ..lineTo(ox + 150, oy + 240)
+          ..lineTo(ox + 60, oy + 150)
+          ..close();
+        canvas.drawPath(inner, innerPaint);
+        // Cross
+        canvas.drawLine(Offset(ox + 150, oy + 60), Offset(ox + 150, oy + 240), crossPaint);
+        canvas.drawLine(Offset(ox + 60, oy + 150), Offset(ox + 240, oy + 150), crossPaint);
+        // Corners
+        canvas.drawLine(Offset(ox + 0, oy + 0), Offset(ox + 50, oy + 50), cornerPaint);
+        canvas.drawLine(Offset(ox + 300, oy + 0), Offset(ox + 250, oy + 50), cornerPaint);
+        canvas.drawLine(Offset(ox + 0, oy + 300), Offset(ox + 50, oy + 250), cornerPaint);
+        canvas.drawLine(Offset(ox + 300, oy + 300), Offset(ox + 250, oy + 250), cornerPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
 
 // ─── STAGGERED FADE-IN ──────────────────────────────────────────────
 class _Stagger extends StatefulWidget {
@@ -298,19 +363,27 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: NetherColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NetherColors.border, width: 1),
         boxShadow: const [
           BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: NetherColors.bgCard.withOpacity(0.55),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: NetherColors.border, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
           Center(
             child: RichText(
               text: const TextSpan(
@@ -481,6 +554,9 @@ class _ProfileCard extends StatelessWidget {
           ),
         ],
       ),
+      ),
+    ),
+  ),
     );
   }
 }
@@ -539,17 +615,25 @@ class _PromoCarouselState extends State<_PromoCarousel> {
   Widget build(BuildContext context) {
     final banners = _banners;
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: NetherColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NetherColors.border, width: 1),
         boxShadow: const [
           BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
-      child: Column(
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: NetherColors.bgCard.withOpacity(0.55),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: NetherColors.border, width: 1),
+            ),
+            child: Column(
+              children: [
           SizedBox(
             height: 160,
             child: PageView.builder(
@@ -694,6 +778,9 @@ class _PromoCarouselState extends State<_PromoCarousel> {
           ),
         ],
       ),
+      ),
+    ),
+  ),
     );
   }
 }
@@ -792,19 +879,27 @@ class _SelectDeviceSectionState extends State<_SelectDeviceSection> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: NetherColors.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NetherColors.border, width: 1),
         boxShadow: const [
           BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section header
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: NetherColors.bgCard.withOpacity(0.55),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: NetherColors.border, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section header
           Row(
             children: [
               Container(
@@ -820,6 +915,7 @@ class _SelectDeviceSectionState extends State<_SelectDeviceSection> {
               RichText(
                 text: const TextSpan(
                   style: TextStyle(
+                    fontFamily: 'Made',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1,
@@ -956,6 +1052,9 @@ class _SelectDeviceSectionState extends State<_SelectDeviceSection> {
             ),
         ],
       ),
+      ),
+    ),
+  ),
     );
   }
 }
@@ -1996,6 +2095,29 @@ class _DashboardPageState extends State<DashboardPage> {
       drawer: _buildDrawer(),
       body: Stack(
         children: [
+          // Background pattern (diamond lines + radial glow).
+          // Only visible on the Home tab — Device & Chat pages have their
+          // own opaque Scaffold backgrounds that cover this.
+          Positioned.fill(
+            child: Stack(
+              children: [
+                CustomPaint(painter: _DashBgPainter()),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(0, -0.4),
+                      radius: 0.8,
+                      colors: [
+                        NetherColors.redDeep.withOpacity(0.2),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 1.0],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // IndexedStack keeps all three pages mounted so the bottom nav
           // persists across Home / Device / Chat tabs without pushing a
           // new route.
