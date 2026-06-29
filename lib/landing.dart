@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -636,7 +637,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
             // profile-card
             _buildProfileCard(),
             // spacer
-            const Spacer(minFlex: 1),
+            const Spacer(),
             // welcome-outer
             _buildWelcomeOuter(),
             const SizedBox(height: 24),
