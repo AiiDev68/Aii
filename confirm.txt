@@ -1,0 +1,79 @@
+# ============================================================
+#  ArchiverZ — confirm.txt
+#  v2 design: cyan+purple vivid glassmorphism
+# ============================================================
+
+[BRANDING]
+appName            = ArchiverZ
+appTagline         = Vanguard Archive System
+appVersion         = 4.0.0
+copyrightLine      = © 2026 ArchiverZ · @ArchiveXTeam
+
+[CHANNELS]
+telegramChannel    = https://t.me/ArchiveXTeam
+telegramDev        = https://t.me/pixzarchive
+buyAccessUrl       = https://t.me/pixzarchive
+
+[API]
+fallbackBaseUrl    = http://206.189.159.247:2000
+remoteConfigUrl    = https://raw.githubusercontent.com/pixzdev/ArchiverZ/main/x.json
+
+[ANDROID]
+applicationId      = com.archiverz.app
+manifestLabel      = ArchiverZ
+compileSdk         = 34
+minSdk             = 21
+targetSdk          = 34
+
+[THEME — v2 Cyan+Purple Vivid Glassmorphism]
+bg                 = #050818  (deep space black)
+bgSurface          = #0A0F2E  (card surface, darker)
+primary (cyan)     = #6DD5ED  (kept for backwards compat)
+secondary (violet) = #A78BFA
+neonCyan           = #00F0FF  (signature accent 1)
+neonPurple         = #B14CFF  (signature accent 2)
+neonPink           = #FF3CAC
+neonBlue           = #3D9BFF
+accentGradient     = neonCyan → neonPurple (cyan-purple diagonal, signature)
+brandGradient      = #050818 → #0A0F2E → #14123A (deep space gradient)
+text               = #E6EBFF
+textDim            = #8B95B8
+
+[LAYOUT — Changes from v1]
+1. NEW: design_system.dart v2 with vivid cyan-purple palette
+   - Added neonCyan, neonPurple, neonPink, neonBlue accents
+   - Added GlassCard with enableGlowBorder option (cyan edge glow)
+   - Added GlowIconButton (circular icon with neon ring)
+   - Added ArchiverSectionHeader, ArchiverStatChip
+   - Added corner glows to AnimatedArchiverBackground
+   - Particles now multi-color (cyan, purple, pink)
+   - InputDecorationTheme with cyan focus border
+2. NEW: post_login_splash.dart (shows after successful login)
+   - "WELCOME, COMMANDER" greeting
+   - Pulsing Tendou Kei brand mark
+   - Username display + role badge
+   - App name + tagline
+   - "INITIALIZING SYSTEM..." indicator
+   - Tap to skip
+   - Auto-advances to dashboard after 2.5s
+3. REMOVED: SuccessVideoDialog in home_page.dart
+   - Bug-execute no longer shows video splash
+   - Replaced with simple SnackBar confirmation
+4. login_page.dart navigates to PostLoginSplash (not /loader directly)
+5. Dashboard (loader_page.dart) body wrapped in AnimatedArchiverBackground
+6. Bottom nav bar uses cyan-purple glass with neon glow
+7. All pages: Colors.black → ArchiverZColors.bg
+8. All pages: green theme (0xFF4ADE80 etc) → cyan theme (0xFF00F0FF)
+
+[FONTS]
+fontDisplay        = Orbitron
+fontMono           = ShareTechMono
+
+[FEATURES]
+- Splash screen (skippable video, Tendou Kei)
+- Post-login splash (cyan-purple glassmorphism)
+- Login page (glass card + glow buttons)
+- Dashboard (AnimatedArchiverBackground + glass cards)
+- RAT Control Panel (5 tabs: Devices, Console, Data, Mesh, Update)
+- All 18+ pages themed with ArchiverZ design system
+- Auto-reconnect via GitHub remote config (5-min refresh)
